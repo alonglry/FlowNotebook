@@ -24,10 +24,20 @@ if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "(unset)" ]; then
 fi
 
 echo "📋 Using GCP Project: $PROJECT_ID"
-echo "📦 Submitting build and deploying to Cloud Run (Region: us-central1)..."
+SERVICE_ACCOUNT="cloudbuild-runner@${PROJECT_ID}.iam.gserviceaccount.com"
+IMAGE_TAG="gcr.io/${PROJECT_ID}/flownotebook:latest"
 
+echo "🔨 Step 1: Building container with Google Cloud Build..."
+gcloud builds submit \
+  --config=cloudbuild.yaml \
+  --service-account="projects/${PROJECT_ID}/serviceAccounts/${SERVICE_ACCOUNT}" \
+  .
+
+echo ""
+echo "🚀 Step 2: Deploying container to Cloud Run (Region: us-central1)..."
 gcloud run deploy flownotebook \
-  --source . \
+  --image "$IMAGE_TAG" \
+  --service-account "$SERVICE_ACCOUNT" \
   --region us-central1 \
   --platform managed \
   --allow-unauthenticated \
