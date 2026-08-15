@@ -44,6 +44,7 @@ export const StorageModal: React.FC<StorageModalProps> = ({
   const [isLoadingDriveList, setIsLoadingDriveList] = useState(false);
 
   const isGoogleAuth = storageManager.googleDriveProvider.isAuthenticated;
+  const hasDriveAccess = storageManager.googleDriveProvider.hasDriveAccess;
 
   useEffect(() => {
     setMode(defaultMode);
@@ -55,19 +56,21 @@ export const StorageModal: React.FC<StorageModalProps> = ({
       setNameInput(projectName || 'My Trading Pipeline');
       setStatusMessage(null);
     }
-  }, [isOpen, isGoogleAuth]);
+  }, [isOpen, isGoogleAuth, hasDriveAccess]);
 
   const loadSavedLists = async () => {
     // Local list
     const locals = await storageManager.localStorageProvider.listProjects();
     setLocalProjects(locals);
 
-    // Drive list if authenticated
-    if (storageManager.googleDriveProvider.isAuthenticated) {
+    // Drive list if authenticated and granted drive access
+    if (storageManager.googleDriveProvider.isAuthenticated && storageManager.googleDriveProvider.hasDriveAccess) {
       setIsLoadingDriveList(true);
       const drives = await storageManager.googleDriveProvider.listProjects();
       setDriveProjects(drives);
       setIsLoadingDriveList(false);
+    } else {
+      setDriveProjects([]);
     }
   };
 
@@ -78,6 +81,21 @@ export const StorageModal: React.FC<StorageModalProps> = ({
       setCurrentUser(user);
       setStatusMessage({ type: 'success', text: `Signed in as ${user.name}` });
       loadSavedLists();
+    }
+    setIsProcessing(false);
+  };
+
+  const handleConnectDrive = async () => {
+    setIsProcessing(true);
+    const granted = await storageManager.googleDriveProvider.requestDriveAccess();
+    if (granted) {
+      if (storageManager.googleDriveProvider.user) {
+        setCurrentUser(storageManager.googleDriveProvider.user);
+      }
+      setStatusMessage({ type: 'success', text: 'Google Drive connected successfully' });
+      loadSavedLists();
+    } else {
+      setStatusMessage({ type: 'error', text: 'Google Drive access was not granted' });
     }
     setIsProcessing(false);
   };
@@ -270,14 +288,14 @@ export const StorageModal: React.FC<StorageModalProps> = ({
                   >
                     <div className="flex items-center justify-between w-full mb-2">
                       <Cloud className="w-5 h-5 text-sky-400" />
-                      {isGoogleAuth && (
+                      {hasDriveAccess && (
                         <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
                       )}
                     </div>
                     <div>
                       <div className="text-xs font-bold text-white">Google Drive</div>
                       <div className="text-[11px] text-slate-400 mt-0.5">
-                        {isGoogleAuth ? `Folder: /FlowNotebook/` : 'Sign in & sync to Drive'}
+                        {hasDriveAccess ? `Folder: /FlowNotebook/` : 'Save to Google Drive'}
                       </div>
                     </div>
                   </button>
@@ -322,16 +340,28 @@ export const StorageModal: React.FC<StorageModalProps> = ({
               {selectedDestination === 'google_drive' && (
                 <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
                   {currentUser ? (
-                    <div className="flex items-center space-x-2.5">
-                      {currentUser.avatarUrl ? (
-                        <img src={currentUser.avatarUrl} alt="" className="w-6 h-6 rounded-full" />
-                      ) : (
-                        <Cloud className="w-5 h-5 text-sky-400" />
-                      )}
-                      <div>
-                        <div className="font-semibold text-white">{currentUser.name}</div>
-                        <div className="text-[11px] text-slate-400">{currentUser.email}</div>
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2.5">
+                        {currentUser.avatarUrl ? (
+                          <img src={currentUser.avatarUrl} alt="" className="w-6 h-6 rounded-full" />
+                        ) : (
+                          <Cloud className="w-5 h-5 text-sky-400" />
+                        )}
+                        <div>
+                          <div className="font-semibold text-white">{currentUser.name}</div>
+                          <div className="text-[11px] text-slate-400">{currentUser.email}</div>
+                        </div>
                       </div>
+                      {hasDriveAccess ? (
+                        <span className="text-[11px] text-emerald-400 font-medium flex items-center space-x-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                          <span>Drive connected</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-medium text-sky-400">
+                          Drive permission requested on save
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <div className="flex items-center justify-between w-full">
@@ -370,14 +400,21 @@ export const StorageModal: React.FC<StorageModalProps> = ({
                     <Cloud className="w-4 h-4 text-sky-400" />
                     <span>Google Drive Pipelines (/FlowNotebook/)</span>
                   </span>
-                  {!currentUser && (
+                  {!currentUser ? (
                     <button
                       onClick={handleGoogleSignIn}
                       className="text-sky-400 hover:underline text-[11px] cursor-pointer"
                     >
                       Sign In with Google
                     </button>
-                  )}
+                  ) : !hasDriveAccess ? (
+                    <button
+                      onClick={handleConnectDrive}
+                      className="text-sky-400 hover:underline text-[11px] cursor-pointer font-medium"
+                    >
+                      Connect Drive
+                    </button>
+                  ) : null}
                 </div>
 
                 {isLoadingDriveList ? (
@@ -407,6 +444,21 @@ export const StorageModal: React.FC<StorageModalProps> = ({
                         </button>
                       </div>
                     ))}
+                  </div>
+                ) : currentUser && !hasDriveAccess ? (
+                  <div className="p-3.5 bg-slate-900/50 border border-slate-800/80 rounded-lg text-center flex flex-col items-center justify-center space-y-2">
+                    <span className="text-xs text-slate-400">
+                      Connect Google Drive to view and load your cloud pipelines.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleConnectDrive}
+                      disabled={isProcessing}
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors"
+                    >
+                      <Cloud className="w-3.5 h-3.5" />
+                      <span>Connect Google Drive</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="p-3 bg-slate-900/50 border border-slate-800/80 rounded-lg text-[11px] text-slate-500 text-center italic">

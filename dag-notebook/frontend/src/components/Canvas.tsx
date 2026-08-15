@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -8,6 +8,7 @@ import {
   type Connection,
   type Edge,
 } from '@xyflow/react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { CodeNode } from './CodeNode';
 import { CustomEdge } from './CustomEdge';
 import { MaximizedNodeModal } from './MaximizedNodeModal';
@@ -19,6 +20,8 @@ export const Canvas: React.FC = () => {
   const onNodesChange = useGraphStore((state) => state.onNodesChange);
   const onEdgesChange = useGraphStore((state) => state.onEdgesChange);
   const onConnect = useGraphStore((state) => state.onConnect);
+
+  const [isTipExpanded, setIsTipExpanded] = useState(false);
 
   const nodeTypes = useMemo(() => ({ codeNode: CodeNode }), []);
   const edgeTypes = useMemo(() => ({ customEdge: CustomEdge, default: CustomEdge }), []);
@@ -93,25 +96,48 @@ export const Canvas: React.FC = () => {
       {/* Maximized Focus Mode Modal */}
       <MaximizedNodeModal />
 
-      {/* Floating Canvas Helper Legend */}
-      <div className="absolute top-4 left-4 z-10 pointer-events-none bg-slate-900/85 backdrop-blur-md border border-slate-800/80 px-3.5 py-2.5 rounded-xl text-[11px] text-slate-400 space-y-1.5 shadow-xl">
-        <div className="font-semibold text-slate-200 flex items-center justify-between">
-          <span>DAG Execution Canvas</span>
-          <span className="text-[10px] text-sky-400 font-mono ml-2">4-Port Nodes</span>
-        </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-400">
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-sky-400" />
-            <span>Top/Left: Inputs</span>
+      {/* Floating Canvas Helper Legend / Tips */}
+      <div className="absolute top-4 left-4 z-10">
+        {!isTipExpanded ? (
+          <button
+            onClick={() => setIsTipExpanded(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-900/85 hover:bg-slate-800/90 backdrop-blur-md border border-slate-800/80 rounded-xl text-xs font-medium text-slate-300 hover:text-white shadow-lg transition-all cursor-pointer"
+            title="Show Canvas Tips"
+          >
+            <span className="text-amber-400">💡</span>
+            <span>Canvas Tips</span>
+            <ChevronDown className="w-3.5 h-3.5 ml-0.5 text-slate-400" />
+          </button>
+        ) : (
+          <div className="bg-slate-900/85 backdrop-blur-md border border-slate-800/80 px-3.5 py-2.5 rounded-xl text-[11px] text-slate-400 space-y-1.5 shadow-xl transition-colors">
+            <div className="font-semibold text-slate-200 flex items-center justify-between space-x-4">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-amber-400">💡</span>
+                <span>DAG Execution Canvas</span>
+              </div>
+              <button
+                onClick={() => setIsTipExpanded(false)}
+                className="p-0.5 text-slate-400 hover:text-slate-200 cursor-pointer rounded transition-colors"
+                title="Collapse Tips"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-400">
+              <div className="flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-sky-400" />
+                <span>Top/Left: Inputs</span>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>Right/Bottom: Outputs</span>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-500 pt-0.5 border-t border-slate-800/60">
+              Click <span className="text-rose-400 font-bold">×</span> on line or press <span className="text-slate-300 font-mono">Del</span> to remove line. Click ⛶ to maximize node.
+            </div>
           </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>Right/Bottom: Outputs</span>
-          </div>
-        </div>
-        <div className="text-[10px] text-slate-500 pt-0.5 border-t border-slate-800/60">
-          💡 Click <span className="text-rose-400 font-bold">×</span> on line or press <span className="text-slate-300 font-mono">Del</span> to remove line. Click ⛶ to maximize node.
-        </div>
+        )}
       </div>
     </div>
   );

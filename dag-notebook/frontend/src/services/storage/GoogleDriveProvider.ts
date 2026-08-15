@@ -3,7 +3,8 @@ import type { StorageProvider, ProjectData, ProjectMetadata, UserProfile } from 
 // Load credentials safely from environment without committing secrets to repository
 const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '';
 const DRIVE_FOLDER_NAME = 'FlowNotebook';
-const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+const LOGIN_SCOPES = 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid';
+const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 export class GoogleDriveProvider implements StorageProvider {
   id = 'google_drive';
@@ -12,10 +13,10 @@ export class GoogleDriveProvider implements StorageProvider {
   isCloud = true;
   isAvailable = Boolean(GOOGLE_CLIENT_ID);
   isAuthenticated = false;
+  hasDriveAccess = false;
   user: UserProfile | null = null;
 
   private accessToken: string | null = null;
-  private tokenClient: any = null;
 
   async init(): Promise<void> {
     if (!this.isAvailable) return;
@@ -28,11 +29,16 @@ export class GoogleDriveProvider implements StorageProvider {
     const cachedUser = localStorage.getItem('flownotebook_google_user');
     const cachedToken = localStorage.getItem('flownotebook_google_token');
     const expiry = localStorage.getItem('flownotebook_google_token_expiry');
+    const cachedDriveAccess = localStorage.getItem('flownotebook_google_has_drive_access');
 
     if (cachedUser) {
       try {
         this.user = JSON.parse(cachedUser);
       } catch (e) {}
+    }
+
+    if (cachedDriveAccess === 'true') {
+      this.hasDriveAccess = true;
     }
 
     if (cachedToken && expiry && Date.now() < Number(expiry)) {
@@ -59,6 +65,11 @@ export class GoogleDriveProvider implements StorageProvider {
     });
   }
 
+  /**
+   * Initial sign-in: Only requests basic profile and email authentication.
+   * Does NOT request Google Drive access scopes.
+   * Remembers the user for instant repeat logins without re-prompting consent.
+   */
   async signIn(): Promise<UserProfile | null> {
     // If already authenticated with a valid token, return immediately
     const expiry = localStorage.getItem('flownotebook_google_token_expiry');
@@ -66,7 +77,23 @@ export class GoogleDriveProvider implements StorageProvider {
       return this.user;
     }
 
+    // Retrieve remembered profile or email for fast frictionless re-login
+    const rememberedUserStr = localStorage.getItem('flownotebook_google_user') || localStorage.getItem('flownotebook_remembered_profile');
+    if (rememberedUserStr && !this.user) {
+      try {
+        this.user = JSON.parse(rememberedUserStr);
+      } catch (e) {}
+    }
+
     if (!this.isAvailable) {
+      // In demo mode, if already remembered, log in directly
+      if (this.user) {
+        this.isAuthenticated = true;
+        this.hasDriveAccess = true;
+        localStorage.setItem('flownotebook_google_user', JSON.stringify(this.user));
+        return this.user;
+      }
+
       // Friendly prompt allowing instant demo testing without requiring Google Cloud keys
       const useDemo = confirm(
         'Google OAuth Client ID is not configured yet.\n\nWould you like to continue in Demo Account mode to test the dashboard, user profile, and cloud pipeline sync?'
@@ -80,7 +107,9 @@ export class GoogleDriveProvider implements StorageProvider {
           avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces'
         };
         this.isAuthenticated = true;
+        this.hasDriveAccess = true;
         localStorage.setItem('flownotebook_google_user', JSON.stringify(this.user));
+        localStorage.setItem('flownotebook_remembered_profile', JSON.stringify(this.user));
         return this.user;
       }
       return null;
@@ -88,20 +117,33 @@ export class GoogleDriveProvider implements StorageProvider {
 
     await this.init();
 
+    const lastEmail = localStorage.getItem('flownotebook_last_email') || this.user?.email || '';
+
     return new Promise((resolve) => {
       const google = (window as any).google;
       if (!google) {
+        if (this.user) {
+          this.isAuthenticated = true;
+          resolve(this.user);
+          return;
+        }
         alert('Google Identity Services SDK failed to load.');
         resolve(null);
         return;
       }
 
-      this.tokenClient = google.accounts.oauth2.initTokenClient({
+      const client = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
-        scope: SCOPES,
+        scope: LOGIN_SCOPES,
         callback: async (resp: any) => {
           if (resp.error) {
-            console.error('[GoogleDrive] OAuth error:', resp);
+            console.error('[GoogleDrive] OAuth login error:', resp);
+            // If user closed dialog or popup was blocked, but profile is remembered, preserve state
+            if (this.user) {
+              this.isAuthenticated = true;
+              resolve(this.user);
+              return;
+            }
             resolve(null);
             return;
           }
@@ -109,7 +151,13 @@ export class GoogleDriveProvider implements StorageProvider {
           this.accessToken = resp.access_token;
           this.isAuthenticated = true;
 
-          // Save token with 1 hour expiration
+          // Check if drive scope was already granted previously
+          if (google.accounts?.oauth2?.hasGrantedAnyScope(resp, DRIVE_SCOPES)) {
+            this.hasDriveAccess = true;
+            localStorage.setItem('flownotebook_google_has_drive_access', 'true');
+          }
+
+          // Save token with expiration
           const expiryTime = Date.now() + (resp.expires_in || 3600) * 1000;
           localStorage.setItem('flownotebook_google_token', resp.access_token);
           localStorage.setItem('flownotebook_google_token_expiry', String(expiryTime));
@@ -126,33 +174,124 @@ export class GoogleDriveProvider implements StorageProvider {
               email: userData.email,
               avatarUrl: userData.picture,
             };
-            localStorage.setItem('flownotebook_google_user', JSON.stringify(this.user));
           } catch (e) {
-            this.user = { id: 'user', name: 'Google User', email: '' };
+            if (!this.user) {
+              this.user = { id: 'user', name: 'Google User', email: lastEmail };
+            }
+          }
+
+          if (this.user) {
+            localStorage.setItem('flownotebook_google_user', JSON.stringify(this.user));
+            localStorage.setItem('flownotebook_remembered_profile', JSON.stringify(this.user));
+            if (this.user.email) {
+              localStorage.setItem('flownotebook_last_email', this.user.email);
+            }
           }
 
           resolve(this.user);
         },
       });
 
-      // Use prompt: '' so Google Identity Services skips consent screen if user already consented once
-      this.tokenClient.requestAccessToken({ prompt: '' });
+      // Request token with prompt: '' (skips consent screen for returning users) and hint
+      client.requestAccessToken({
+        prompt: '',
+        hint: lastEmail || undefined,
+      });
+    });
+  }
+
+  /**
+   * Request Google Drive access incrementally when saving or managing files.
+   */
+  async requestDriveAccess(): Promise<boolean> {
+    const expiry = localStorage.getItem('flownotebook_google_token_expiry');
+    if (this.isAuthenticated && this.hasDriveAccess && this.accessToken && expiry && Date.now() < Number(expiry)) {
+      return true;
+    }
+
+    if (!this.isAvailable) {
+      this.hasDriveAccess = true;
+      return true;
+    }
+
+    await this.init();
+
+    const lastEmail = localStorage.getItem('flownotebook_last_email') || this.user?.email || '';
+
+    return new Promise((resolve) => {
+      const google = (window as any).google;
+      if (!google) {
+        alert('Google Identity Services SDK failed to load.');
+        resolve(false);
+        return;
+      }
+
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: `${LOGIN_SCOPES} ${DRIVE_SCOPES}`,
+        callback: async (resp: any) => {
+          if (resp.error) {
+            console.error('[GoogleDrive] Drive OAuth error:', resp);
+            resolve(false);
+            return;
+          }
+
+          this.accessToken = resp.access_token;
+          this.isAuthenticated = true;
+          this.hasDriveAccess = true;
+
+          const expiryTime = Date.now() + (resp.expires_in || 3600) * 1000;
+          localStorage.setItem('flownotebook_google_token', resp.access_token);
+          localStorage.setItem('flownotebook_google_token_expiry', String(expiryTime));
+          localStorage.setItem('flownotebook_google_has_drive_access', 'true');
+
+          // Fetch user info if not already loaded
+          if (!this.user) {
+            try {
+              const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${this.accessToken}` },
+              });
+              const userData = await userRes.json();
+              this.user = {
+                id: userData.sub,
+                name: userData.name || userData.email,
+                email: userData.email,
+                avatarUrl: userData.picture,
+              };
+              localStorage.setItem('flownotebook_google_user', JSON.stringify(this.user));
+              localStorage.setItem('flownotebook_remembered_profile', JSON.stringify(this.user));
+              if (this.user.email) {
+                localStorage.setItem('flownotebook_last_email', this.user.email);
+              }
+            } catch (e) {
+              this.user = { id: 'user', name: 'Google User', email: '' };
+            }
+          }
+
+          resolve(true);
+        },
+      });
+
+      client.requestAccessToken({
+        prompt: '',
+        hint: lastEmail || undefined,
+      });
     });
   }
 
   async signOut(): Promise<void> {
-    const google = (window as any).google;
-    if (google && this.accessToken) {
-      try {
-        google.accounts.oauth2.revoke(this.accessToken, () => {});
-      } catch (e) {}
-    }
+    // Note: Do NOT call google.accounts.oauth2.revoke(this.accessToken) here.
+    // Calling revoke() tells Google to delete the user's permission grant, forcing Google to display the full consent
+    // dialog asking for email/profile access on their next sign in.
+    // Instead, simply clear the active session tokens while preserving their remembered email/profile for smooth future logins.
     this.accessToken = null;
     this.isAuthenticated = false;
+    this.hasDriveAccess = false;
     this.user = null;
     localStorage.removeItem('flownotebook_google_token');
     localStorage.removeItem('flownotebook_google_token_expiry');
     localStorage.removeItem('flownotebook_google_user');
+    localStorage.removeItem('flownotebook_google_has_drive_access');
   }
 
   private async getOrCreateFolder(): Promise<string | null> {
@@ -186,9 +325,9 @@ export class GoogleDriveProvider implements StorageProvider {
   }
 
   async saveProject(project: ProjectData): Promise<{ success: boolean; fileId?: string; message?: string }> {
-    if (!this.isAuthenticated || !this.accessToken) {
-      const user = await this.signIn();
-      if (!user) return { success: false, message: 'Google Sign-in cancelled' };
+    if (!this.isAuthenticated || !this.hasDriveAccess || !this.accessToken) {
+      const granted = await this.requestDriveAccess();
+      if (!granted) return { success: false, message: 'Google Drive permission was not granted.' };
     }
 
     try {
@@ -256,7 +395,7 @@ export class GoogleDriveProvider implements StorageProvider {
   }
 
   async listProjects(): Promise<ProjectMetadata[]> {
-    if (!this.isAuthenticated || !this.accessToken) {
+    if (!this.isAuthenticated || !this.hasDriveAccess || !this.accessToken) {
       return [];
     }
 
@@ -284,9 +423,9 @@ export class GoogleDriveProvider implements StorageProvider {
   }
 
   async loadProject(fileId?: string): Promise<ProjectData | null> {
-    if (!this.isAuthenticated || !this.accessToken) {
-      const user = await this.signIn();
-      if (!user) return null;
+    if (!this.isAuthenticated || !this.hasDriveAccess || !this.accessToken) {
+      const granted = await this.requestDriveAccess();
+      if (!granted) return null;
     }
 
     if (!fileId) return null;
