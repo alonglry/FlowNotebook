@@ -259,7 +259,205 @@ const INITIAL_EDGES: Edge[] = [
   },
 ];
 
+export interface PipelineItem {
+  id: string;
+  name: string;
+  category: 'quant' | 'ml' | 'etl' | 'custom';
+  description: string;
+  updatedAt: number;
+  nodeCount: number;
+  edgeCount: number;
+  nodes: CustomNode[];
+  edges: Edge[];
+}
+
+const DEFAULT_PIPELINES: PipelineItem[] = [
+  {
+    id: 'pipe_quant_alpha',
+    name: 'Quantitative Alpha Pipeline',
+    category: 'quant',
+    description: '4-stage systematic trading strategy with OHLCV data, regime filter, and dynamic ATR stops.',
+    updatedAt: Date.now() - 3600000,
+    nodeCount: 4,
+    edgeCount: 3,
+    nodes: INITIAL_NODES,
+    edges: INITIAL_EDGES,
+  },
+  {
+    id: 'pipe_ml_classifier',
+    name: 'Customer Churn Random Forest',
+    category: 'ml',
+    description: 'Feature engineering, train/test split, and random forest classifier with cross-validation.',
+    updatedAt: Date.now() - 86400000,
+    nodeCount: 3,
+    edgeCount: 2,
+    nodes: [
+      {
+        id: 'ml_1',
+        type: 'codeNode',
+        position: { x: 50, y: 150 },
+        data: {
+          title: 'Data Generator',
+          inputs: [],
+          outputs: ['X', 'y'],
+          code: `import pandas as pd
+import numpy as np
+
+# Generate synthetic tabular classification dataset
+np.random.seed(42)
+n_samples = 500
+X = pd.DataFrame({
+    'age': np.random.randint(18, 70, n_samples),
+    'monthly_charges': np.random.uniform(20.0, 120.0, n_samples),
+    'tenure_months': np.random.randint(1, 72, n_samples),
+    'support_calls': np.random.poisson(2, n_samples)
+})
+
+# Churn logic with non-linear relationships
+churn_prob = 1 / (1 + np.exp(-(0.03 * X['monthly_charges'] - 0.05 * X['tenure_months'] + 0.3 * X['support_calls'] - 2)))
+y = (np.random.rand(n_samples) < churn_prob).astype(int)
+
+print(f"Generated {n_samples} samples. Churn rate: {y.mean():.2%}")
+print(X.head())
+`,
+          execution: { status: 'idle', stdout: '', stderr: '' }
+        }
+      },
+      {
+        id: 'ml_2',
+        type: 'codeNode',
+        position: { x: 550, y: 150 },
+        data: {
+          title: 'Train / Test Split & Scaler',
+          inputs: ['X', 'y'],
+          outputs: ['X_train', 'X_test', 'y_train', 'y_test'],
+          code: `from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y
+)
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train_raw)
+X_test = scaler.transform(X_test_raw)
+
+print(f"Training set: {X_train.shape[0]} rows | Test set: {X_test.shape[0]} rows")
+`,
+          execution: { status: 'idle', stdout: '', stderr: '' }
+        }
+      },
+      {
+        id: 'ml_3',
+        type: 'codeNode',
+        position: { x: 1050, y: 150 },
+        data: {
+          title: 'Random Forest Model',
+          inputs: ['X_train', 'X_test', 'y_train', 'y_test'],
+          outputs: ['accuracy', 'feature_importance'],
+          code: `from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score
+
+clf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
+clf.fit(X_train, y_train)
+
+y_pred = clf.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+
+print(f"Model Accuracy: {accuracy:.4f}\\n")
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+`,
+          execution: { status: 'idle', stdout: '', stderr: '' }
+        }
+      }
+    ],
+    edges: [
+      { id: 'e_ml_1', source: 'ml_1', sourceHandle: 'right', target: 'ml_2', targetHandle: 'left', type: 'customEdge' },
+      { id: 'e_ml_2', source: 'ml_2', sourceHandle: 'right', target: 'ml_3', targetHandle: 'left', type: 'customEdge' }
+    ]
+  },
+  {
+    id: 'pipe_etl_cleaner',
+    name: 'Automated Data Quality & Imputation',
+    category: 'etl',
+    description: 'Data sanitation pipeline handling missing records, outlier detection, and schema validation.',
+    updatedAt: Date.now() - 172800000,
+    nodeCount: 2,
+    edgeCount: 1,
+    nodes: [
+      {
+        id: 'etl_1',
+        type: 'codeNode',
+        position: { x: 100, y: 150 },
+        data: {
+          title: 'Raw Sensor Data Ingest',
+          inputs: [],
+          outputs: ['raw_df'],
+          code: `import pandas as pd
+import numpy as np
+
+# Create noisy sensor dataset with missing values
+np.random.seed(101)
+n = 1000
+raw_df = pd.DataFrame({
+    'timestamp': pd.date_range('2026-01-01', periods=n, freq='1min'),
+    'temperature': np.random.normal(25.0, 3.5, n),
+    'pressure': np.random.normal(101.3, 2.0, n),
+    'vibration_index': np.random.exponential(1.5, n)
+})
+
+# Inject artificial nulls and outliers
+raw_df.loc[np.random.choice(n, 35), 'temperature'] = np.nan
+raw_df.loc[np.random.choice(n, 10), 'pressure'] = 250.0  # Spikes
+
+print(f"Raw shape: {raw_df.shape}")
+print(raw_df.isna().sum())
+`,
+          execution: { status: 'idle', stdout: '', stderr: '' }
+        }
+      },
+      {
+        id: 'etl_2',
+        type: 'codeNode',
+        position: { x: 600, y: 150 },
+        data: {
+          title: 'Outlier Filter & Forward-Fill',
+          inputs: ['raw_df'],
+          outputs: ['clean_df'],
+          code: `clean_df = raw_df.copy()
+
+# Forward fill missing temperature readings
+clean_df['temperature'] = clean_df['temperature'].ffill().bfill()
+
+# Clip pressure spikes to 3 standard deviations
+p_mean = clean_df['pressure'].mean()
+p_std = clean_df['pressure'].std()
+clean_df['pressure'] = clean_df['pressure'].clip(lower=p_mean - 3*p_std, upper=p_mean + 3*p_std)
+
+print("Data Cleaning Complete. Summary Statistics:")
+print(clean_df.describe())
+`,
+          execution: { status: 'idle', stdout: '', stderr: '' }
+        }
+      }
+    ],
+    edges: [
+      { id: 'e_etl_1', source: 'etl_1', sourceHandle: 'right', target: 'etl_2', targetHandle: 'left', type: 'customEdge' }
+    ]
+  }
+];
+
 interface GraphState {
+  currentView: 'landing' | 'dashboard' | 'canvas' | 'admin';
+  setCurrentView: (view: 'landing' | 'dashboard' | 'canvas' | 'admin') => void;
+  pipelines: PipelineItem[];
+  activePipelineId: string | null;
+  createPipeline: (name: string, category?: 'quant' | 'ml' | 'etl' | 'custom') => string;
+  openPipeline: (id: string) => void;
+  deletePipeline: (id: string) => void;
+  duplicatePipeline: (id: string) => void;
+
   nodes: CustomNode[];
   edges: Edge[];
   wsStatus: 'connecting' | 'connected' | 'disconnected';
@@ -305,7 +503,120 @@ interface GraphState {
   setIsExportModalOpen: (open: boolean) => void;
 }
 
+// Telemetry helper functions
+const sendTelemetry = (endpoint: string, payload: any) => {
+  fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {
+    // Silent fail for non-blocking telemetry
+  });
+};
+
 export const useGraphStore = create<GraphState>((set, get) => ({
+  currentView: 'landing',
+  setCurrentView: (view) => set({ currentView: view }),
+  pipelines: DEFAULT_PIPELINES,
+  activePipelineId: 'pipe_quant_alpha',
+
+  createPipeline: (name, category = 'custom') => {
+    const newId = `pipe_${Date.now()}`;
+    const initialNode: CustomNode = {
+      id: 'node_1',
+      type: 'codeNode',
+      position: { x: 100, y: 150 },
+      data: {
+        title: 'Main Script',
+        inputs: [],
+        outputs: ['result'],
+        code: `import pandas as pd
+import numpy as np
+
+# Write your Python pipeline logic here
+data = {'message': 'Hello from FlowNotebook!'}
+print("Pipeline initiated successfully.")
+`,
+        execution: { status: 'idle', stdout: '', stderr: '' }
+      }
+    };
+
+    const newPipeline: PipelineItem = {
+      id: newId,
+      name: name || 'Untitled Pipeline',
+      category,
+      description: 'Custom user defined pipeline',
+      updatedAt: Date.now(),
+      nodeCount: 1,
+      edgeCount: 0,
+      nodes: [initialNode],
+      edges: []
+    };
+
+    set({
+      pipelines: [newPipeline, ...get().pipelines],
+      activePipelineId: newId,
+      projectName: newPipeline.name,
+      nodes: [initialNode],
+      edges: [],
+      currentView: 'canvas'
+    });
+
+    // Send telemetry to backend
+    const currentUser = get().currentUser || {
+      id: 'usr_guest',
+      name: 'Guest User',
+      email: 'guest@flownotebook.dev'
+    };
+    sendTelemetry('/api/telemetry/pipeline', {
+      pipeline: newPipeline,
+      user: currentUser
+    });
+
+    return newId;
+  },
+
+  openPipeline: (id) => {
+    const found = get().pipelines.find((p) => p.id === id);
+    if (found) {
+      set({
+        activePipelineId: id,
+        projectName: found.name,
+        nodes: found.nodes,
+        edges: found.edges,
+        currentView: 'canvas'
+      });
+    }
+  },
+
+  deletePipeline: (id) => {
+    const updated = get().pipelines.filter((p) => p.id !== id);
+    set({ pipelines: updated });
+  },
+
+  duplicatePipeline: (id) => {
+    const target = get().pipelines.find((p) => p.id === id);
+    if (!target) return;
+    const newId = `pipe_${Date.now()}`;
+    const duplicate: PipelineItem = {
+      ...target,
+      id: newId,
+      name: `${target.name} (Copy)`,
+      updatedAt: Date.now()
+    };
+    set({ pipelines: [duplicate, ...get().pipelines] });
+
+    const currentUser = get().currentUser || {
+      id: 'usr_guest',
+      name: 'Guest User',
+      email: 'guest@flownotebook.dev'
+    };
+    sendTelemetry('/api/telemetry/pipeline', {
+      pipeline: duplicate,
+      user: currentUser
+    });
+  },
+
   nodes: INITIAL_NODES,
   edges: INITIAL_EDGES,
   wsStatus: 'disconnected',
@@ -326,6 +637,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   setCurrentUser: (user) => {
     set({ currentUser: user });
+    if (user) {
+      sendTelemetry('/api/telemetry/user', {
+        user,
+        action: 'login',
+        details: `User signed in as ${user.name} (${user.email})`
+      });
+    }
   },
 
   openStorageModal: (mode) => {
@@ -658,7 +976,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   runGraph: () => {
-    const { ws, wsStatus, nodes, edges } = get();
+    const { ws, wsStatus, nodes, edges, currentUser } = get();
     if (!ws || wsStatus !== 'connected') {
       alert('WebSocket backend is not connected. Please ensure backend server is running.');
       return;
@@ -666,6 +984,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
     const payload = {
       action: 'run_graph',
+      user: currentUser,
       graph: {
         nodes: nodes.map((n) => ({
           id: n.id,
@@ -702,7 +1021,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   runNode: (nodeId: string) => {
-    const { ws, wsStatus, nodes, edges } = get();
+    const { ws, wsStatus, nodes, edges, currentUser } = get();
     if (!ws || wsStatus !== 'connected') {
       alert('WebSocket backend is not connected.');
       return;
@@ -711,6 +1030,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const payload = {
       action: 'run_node',
       nodeId,
+      user: currentUser,
       graph: {
         nodes: nodes.map((n) => ({
           id: n.id,

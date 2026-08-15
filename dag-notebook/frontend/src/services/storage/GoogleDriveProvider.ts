@@ -54,7 +54,22 @@ export class GoogleDriveProvider implements StorageProvider {
 
   async signIn(): Promise<UserProfile | null> {
     if (!this.isAvailable) {
-      alert('Google Drive integration requires VITE_GOOGLE_CLIENT_ID in your environment.');
+      // Friendly prompt allowing instant demo testing without requiring Google Cloud keys
+      const useDemo = confirm(
+        'Google OAuth Client ID is not configured yet.\n\nWould you like to continue in Demo Account mode to test the dashboard, user profile, and cloud pipeline sync?'
+      );
+
+      if (useDemo) {
+        this.user = {
+          id: 'demo_user_123',
+          name: 'Demo Account',
+          email: 'demo@flownotebook.dev',
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces'
+        };
+        this.isAuthenticated = true;
+        localStorage.setItem('flownotebook_google_user', JSON.stringify(this.user));
+        return this.user;
+      }
       return null;
     }
 

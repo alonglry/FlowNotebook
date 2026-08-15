@@ -12,11 +12,18 @@ ENV/
 .pytest_cache/
 .coverage
 htmlcov/
+*.db
+*.sqlite
+*.sqlite3
+flownotebook_admin.db
 
 # Node / Frontend
 node_modules/
 dist/
 dist-ssr/
+.env
+.env.local
+.env.*.local
 *.local
 .oxlintrc.json
 
