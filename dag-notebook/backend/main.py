@@ -1,5 +1,5 @@
 """
-FastAPI Application and WebSocket Handler for DAG Notebook execution canvas.
+FastAPI Application and WebSocket Handler for PyCanvas execution engine.
 """
 
 import json
@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from graph_engine import GraphExecutionEngine
 from compiler import compile_dag_to_script
 
-app = FastAPI(title="DAG Notebook Backend", version="1.0.0")
+app = FastAPI(title="PyCanvas Backend", version="1.0.0")
 
 # Enable CORS for React frontend
 app.add_middleware(

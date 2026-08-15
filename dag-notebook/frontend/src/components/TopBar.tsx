@@ -57,9 +57,9 @@ export const TopBar: React.FC = () => {
         </div>
         <div>
           <div className="flex items-center space-x-2">
-            <h1 className="text-sm font-bold tracking-tight text-white">DAG Notebook</h1>
+            <h1 className="text-sm font-bold tracking-tight text-white">PyCanvas</h1>
             <span className="px-1.5 py-0.5 rounded bg-sky-950 text-sky-400 text-[10px] font-semibold uppercase tracking-wider border border-sky-800/80">
-              Python Canvas
+              DAG Python
             </span>
           </div>
           <p className="text-[11px] text-slate-400">

@@ -1,4 +1,4 @@
-# ⬡ GraphBook (DAG Python Execution Canvas)
+# ⬡ PyCanvas (Node-Based DAG Python Execution Canvas)
 
 <p align="center">
   <strong>A visual Directed Acyclic Graph (DAG) alternative to linear Jupyter Notebooks.</strong><br>
@@ -108,7 +108,7 @@ pytest test_backend.py -v
 
 ## 📈 Default Seed Pipeline (Quant Backtest Demo)
 
-Upon initial launch, GraphBook auto-populates with a complete 4-stage Quantitative Trading Pipeline:
+Upon initial launch, PyCanvas auto-populates with a complete 4-stage Quantitative Trading Pipeline:
 
 ```mermaid
 graph LR
