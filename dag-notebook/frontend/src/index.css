@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color-scheme: dark;
+  background-color: #0b0f19;
+  color: #f1f5f9;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #090d16;
+}
+
+/* Custom modern scrollbar for terminals and editors */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.8);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 1);
+}
+
+/* React Flow customizations for sleek dark theme */
+.react-flow__background {
+  background-color: #080c14 !important;
+}
+
+.react-flow__controls {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(51, 65, 85, 0.5) !important;
+  background: #111827 !important;
+}
+
+.react-flow__controls-button {
+  background: #111827 !important;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4) !important;
+  fill: #94a3b8 !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #1e293b !important;
+  fill: #f8fafc !important;
+}
+
+.react-flow__minimap {
+  background: #0f172a !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(51, 65, 85, 0.4) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+}
+
+.react-flow__edge-path {
+  stroke-width: 2.5;
+  stroke: #475569;
+  transition: stroke 0.3s ease, stroke-width 0.3s ease;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #38bdf8;
+  stroke-width: 3.5;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke: #0ea5e9;
+  stroke-dasharray: 6;
+  animation: edgeFlow 1s linear infinite;
+}
+
+@keyframes edgeFlow {
+  from {
+    stroke-dashoffset: 12;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ========================================================================= */
+/* CONNECTOR VISIBILITY LOGIC                                                */
+/* Handles are hidden/subtle by default, only appear when hovering near node */
+/* or when actively dragging/connecting a line                               */
+/* ========================================================================= */
+
+.react-flow__handle.node-connector {
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease !important;
+}
+
+/* Center adjustment preservation */
+.react-flow__handle.node-connector[data-handlepos="left"],
+.react-flow__handle.node-connector[data-handlepos="right"] {
+  transform: translateY(-50%) scale(0.6);
+}
+
+/* Appear when hovering over the node or when node is selected */
+.react-flow__node:hover .react-flow__handle.node-connector,
+.react-flow__node.selected .react-flow__handle.node-connector,
+.react-flow__node:focus-within .react-flow__handle.node-connector {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.react-flow__node:hover .react-flow__handle.node-connector[data-handlepos="left"],
+.react-flow__node:hover .react-flow__handle.node-connector[data-handlepos="right"],
+.react-flow__node.selected .react-flow__handle.node-connector[data-handlepos="left"],
+.react-flow__node.selected .react-flow__handle.node-connector[data-handlepos="right"] {
+  transform: translateY(-50%) scale(1);
+}
+
+/* Appear on all nodes when user is actively dragging/connecting a line */
+.react-flow--connecting .react-flow__handle.node-connector,
+.react-flow.connecting .react-flow__handle.node-connector {
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
+  animation: handleGlow 1.5s infinite alternate;
+}
+
+.react-flow--connecting .react-flow__handle.node-connector[data-handlepos="left"],
+.react-flow--connecting .react-flow__handle.node-connector[data-handlepos="right"],
+.react-flow.connecting .react-flow__handle.node-connector[data-handlepos="left"],
+.react-flow.connecting .react-flow__handle.node-connector[data-handlepos="right"] {
+  transform: translateY(-50%) scale(1.1) !important;
+}
+
+/* Hovering directly on a connector point */
+.react-flow__handle.node-connector:hover {
+  transform: scale(1.4) !important;
+  opacity: 1 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.9), 0 0 4px #ffffff !important;
+}
+
+.react-flow__handle.node-connector[data-handlepos="left"]:hover,
+.react-flow__handle.node-connector[data-handlepos="right"]:hover {
+  transform: translateY(-50%) scale(1.4) !important;
+}
+
+@keyframes handleGlow {
+  0% {
+    box-shadow: 0 0 2px rgba(56, 189, 248, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.9), 0 0 3px #ffffff;
+  }
+}

@@ -51,14 +51,7 @@
 
 ## 🚀 Quickstart
 
-### 1. Clone & Setup Repository
-
-```bash
-git clone https://github.com/your-username/graphbook.git
-cd graphbook/dag-notebook
-```
-
-### 2. Start Backend Server
+### 1. Start Backend Server
 
 ```bash
 cd backend
@@ -70,7 +63,7 @@ python main.py
 
 *The FastAPI WebSocket server starts at `http://127.0.0.1:8000` (Health: `/api/health`, WS: `/ws/execute`).*
 
-### 3. Start Frontend App
+### 2. Start Frontend App
 
 In a separate terminal window:
 
@@ -106,11 +99,6 @@ graph LR
     N3 -->|final_signals| N4["Node 4: Performance Summary<br/>(Sharpe Ratio, Max DD, Win Rate)"]
 ```
 
-1. **Node 1 (Data Ingestion)**: Generates 500 periods of synthetic OHLCV time-series data with drift and volatility $\rightarrow$ `df`.
-2. **Node 2 (Regime Filter)**: Fits rolling volatility & trend regime model (Bull Low-Vol vs. Bear Correction) $\rightarrow$ `df_regime`.
-3. **Node 3 (Risk Management)**: Computes 14-period Average True Range (ATR) dynamic trailing stop-loss levels $\rightarrow$ `final_signals`.
-4. **Node 4 (Performance Summary)**: Simulates equity curve, calculates Sharpe Ratio, Maximum Drawdown, Win Rate, and outputs summary metrics.
-
 ---
 
 ## ⌨️ Keyboard Shortcuts & Canvas Controls
@@ -125,38 +113,6 @@ graph LR
 | **Pan Canvas** | Click & Drag empty canvas space |
 | **Zoom In / Out** | Mouse Wheel / Trackpad Pinch |
 | **Rename Node** | Double click Node Title |
-
----
-
-## 📂 Project Structure
-
-```
-dag-notebook/
-├── backend/
-│   ├── main.py              # FastAPI app & WebSocket handlers (/ws/execute)
-│   ├── graph_engine.py      # NetworkX DAG sorting, cycle detection & orchestrator
-│   ├── sandbox.py           # Isolated execution runner with defensive copying & stdout capture
-│   ├── compiler.py          # Standalone modular .py script generator
-│   ├── requirements.txt     # Backend dependencies
-│   ├── test_backend.py      # Pytest automated test suite
-│   └── test_ws_live.py      # WebSocket streaming integration test
-└── frontend/
-    ├── src/
-    │   ├── components/
-    │   │   ├── Canvas.tsx             # React Flow root container with cycle validation
-    │   │   ├── CodeNode.tsx           # Custom 4-port node with Monaco & handles
-    │   │   ├── CustomEdge.tsx         # Interactive deletable edge component
-    │   │   ├── MaximizedNodeModal.tsx # Fullscreen split focus workspace
-    │   │   ├── Terminal.tsx           # Multi-tab console, DataFrame table & variables inspector
-    │   │   ├── TopBar.tsx             # DAG execution controls & Kernel connection badge
-    │   │   └── ExportModal.tsx        # Standalone Python script modal with download
-    │   ├── store/
-    │   │   └── useGraphStore.ts       # Zustand store for DAG graph state & WebSocket client
-    │   ├── App.tsx
-    │   └── index.css                  # Dark mode styling & connector animations
-    ├── package.json
-    └── vite.config.ts
-```
 
 ---
 
