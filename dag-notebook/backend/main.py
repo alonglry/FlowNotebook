@@ -123,6 +123,24 @@ async def websocket_execute_endpoint(websocket: WebSocket):
             pass
 
 
+# Mount frontend static files if built
+import os
+from fastapi.staticfiles import StaticFiles
+
+static_dirs = [
+    os.path.join(os.path.dirname(__file__), "dist"),
+    os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"),
+    "/app/dist"
+]
+
+for s_dir in static_dirs:
+    if os.path.exists(s_dir):
+        app.mount("/", StaticFiles(directory=s_dir, html=True), name="static")
+        break
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+

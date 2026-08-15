@@ -1,0 +1,16 @@
+.git
+.gitignore
+.DS_Store
+node_modules
+venv
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.coverage
+htmlcov
+dist
+dag-notebook/frontend/node_modules
+dag-notebook/frontend/dist
+dag-notebook/backend/venv
