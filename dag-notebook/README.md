@@ -16,6 +16,24 @@
 
 ---
 
+## 📸 UI Previews
+
+### 1. Overall DAG Canvas View
+*Interactive 2D graph canvas with customizable 4-port nodes, Monaco editor blocks, animated dependency edges, and real-time execution controls.*
+
+<p align="center">
+  <img src="./frontend/src/image/demo%201.png" alt="PyCanvas Overall Canvas View" width="100%" />
+</p>
+
+### 2. Node Focus Mode (Click-to-Maximize)
+*Full-screen focus workspace featuring split-screen editing: full-height Monaco Python editor on the left and live tabular DataFrame viewer & console output on the right.*
+
+<p align="center">
+  <img src="./frontend/src/image/demo%202.png" alt="PyCanvas Maximized Node Focus Mode" width="100%" />
+</p>
+
+---
+
 ## ✨ Features
 
 - 🗺️ **Interactive 2D Infinite Canvas**: Pan, zoom, drag, and organize non-linear code blocks powered by `@xyflow/react`.
