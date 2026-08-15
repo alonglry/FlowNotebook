@@ -523,25 +523,25 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const host = isDev ? `${hostname}:8000` : window.location.host;
     const wsUrl = (import.meta as any).env?.VITE_BACKEND_WS_URL || `${protocol}//${host}/ws/execute`;
 
-    console.log('[PyCanvas] Initializing WebSocket connection to:', wsUrl);
+    console.log('[FlowNotebook] Initializing WebSocket connection to:', wsUrl);
     set({ wsStatus: 'connecting' });
 
     let ws: WebSocket;
     try {
       ws = new WebSocket(wsUrl);
     } catch (err) {
-      console.error('[PyCanvas] WebSocket initialization error:', err);
+      console.error('[FlowNotebook] WebSocket initialization error:', err);
       set({ wsStatus: 'disconnected', ws: null });
       return;
     }
 
     ws.onopen = () => {
-      console.log('[PyCanvas] WebSocket connected successfully.');
+      console.log('[FlowNotebook] WebSocket connected successfully.');
       set({ wsStatus: 'connected', ws });
     };
 
     ws.onclose = (event) => {
-      console.warn('[PyCanvas] WebSocket closed:', event.code, event.reason);
+      console.warn('[FlowNotebook] WebSocket closed:', event.code, event.reason);
       set({ wsStatus: 'disconnected', ws: null, isGraphRunning: false });
       // Auto-reconnect after 2 seconds
       setTimeout(() => {
@@ -553,7 +553,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     };
 
     ws.onerror = (err) => {
-      console.error('[PyCanvas] WebSocket error:', err);
+      console.error('[FlowNotebook] WebSocket error:', err);
       set({ wsStatus: 'disconnected', isGraphRunning: false });
     };
 

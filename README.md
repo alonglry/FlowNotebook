@@ -1,7 +1,7 @@
-# ⬡ PyCanvas (Node-Based DAG Python Execution Canvas)
+# ⬡ FlowNotebook
 
 <p align="center">
-  <strong>A visual Directed Acyclic Graph (DAG) alternative to linear Jupyter Notebooks.</strong><br>
+  <strong>The visual Flow & DAG alternative to linear Jupyter Notebooks for Python.</strong><br>
   Position Python code blocks freely on a 2D canvas, route data dependencies across explicit handles, and execute with zero-mutation isolated namespaces and real-time WebSocket telemetry.
 </p>
 
@@ -18,18 +18,18 @@
 
 ## 📸 UI Previews
 
-### 1. Overall DAG Canvas View
+### 1. Overall Canvas View
 *Interactive 2D graph canvas with customizable 4-port nodes, Monaco editor blocks, animated dependency edges, and real-time execution controls.*
 
 <p align="center">
-  <img src="./dag-notebook/frontend/src/image/demo%201.png" alt="PyCanvas Overall Canvas View" width="100%" />
+  <img src="./dag-notebook/frontend/src/image/demo%201.png" alt="FlowNotebook Overall Canvas View" width="100%" />
 </p>
 
 ### 2. Node Focus Mode (Click-to-Maximize)
 *Full-screen focus workspace featuring split-screen editing: full-height Monaco Python editor on the left and live tabular DataFrame viewer & console output on the right.*
 
 <p align="center">
-  <img src="./dag-notebook/frontend/src/image/demo%202.png" alt="PyCanvas Maximized Node Focus Mode" width="100%" />
+  <img src="./dag-notebook/frontend/src/image/demo%202.png" alt="FlowNotebook Maximized Node Focus Mode" width="100%" />
 </p>
 
 ---
@@ -72,8 +72,8 @@
 ### 1. Clone & Setup Repository
 
 ```bash
-git clone https://github.com/alonglry/PyCanvas.git
-cd PyCanvas/dag-notebook
+git clone https://github.com/alonglry/FlowNotebook.git
+cd FlowNotebook/dag-notebook
 ```
 
 ### 2. Start Backend Server
@@ -115,7 +115,7 @@ pytest test_backend.py -v
 
 ## 📈 Default Seed Pipeline (Quant Backtest Demo)
 
-Upon initial launch, PyCanvas auto-populates with a complete 4-stage Quantitative Trading Pipeline:
+Upon initial launch, FlowNotebook auto-populates with a complete 4-stage Quantitative Trading Pipeline:
 
 ```mermaid
 graph LR
@@ -123,11 +123,6 @@ graph LR
     N2 -->|df_regime| N3["Node 3: Risk Management<br/>(Dynamic 14-period ATR Stops)"]
     N3 -->|final_signals| N4["Node 4: Performance Summary<br/>(Sharpe Ratio, Max DD, Win Rate)"]
 ```
-
-1. **Node 1 (Data Ingestion)**: Generates 500 periods of synthetic OHLCV time-series data with drift and volatility $\rightarrow$ `df`.
-2. **Node 2 (Regime Filter)**: Fits rolling volatility & trend regime model (Bull Low-Vol vs. Bear Correction) $\rightarrow$ `df_regime`.
-3. **Node 3 (Risk Management)**: Computes 14-period Average True Range (ATR) dynamic trailing stop-loss levels $\rightarrow$ `final_signals`.
-4. **Node 4 (Performance Summary)**: Simulates equity curve, calculates Sharpe Ratio, Maximum Drawdown, Win Rate, and outputs summary metrics.
 
 ---
 
@@ -143,38 +138,6 @@ graph LR
 | **Pan Canvas** | Click & Drag empty canvas space |
 | **Zoom In / Out** | Mouse Wheel / Trackpad Pinch |
 | **Rename Node** | Double click Node Title |
-
----
-
-## 📂 Project Structure
-
-```
-dag-notebook/
-├── backend/
-│   ├── main.py              # FastAPI app & WebSocket handlers (/ws/execute)
-│   ├── graph_engine.py      # NetworkX DAG sorting, cycle detection & orchestrator
-│   ├── sandbox.py           # Isolated execution runner with defensive copying & stdout capture
-│   ├── compiler.py          # Standalone modular .py script generator
-│   ├── requirements.txt     # Backend dependencies
-│   ├── test_backend.py      # Pytest automated test suite
-│   └── test_ws_live.py      # WebSocket streaming integration test
-└── frontend/
-    ├── src/
-    │   ├── components/
-    │   │   ├── Canvas.tsx             # React Flow root container with cycle validation
-    │   │   ├── CodeNode.tsx           # Custom 4-port node with Monaco & handles
-    │   │   ├── CustomEdge.tsx         # Interactive deletable edge component
-    │   │   ├── MaximizedNodeModal.tsx # Fullscreen split focus workspace
-    │   │   ├── Terminal.tsx           # Multi-tab console, DataFrame table & variables inspector
-    │   │   ├── TopBar.tsx             # DAG execution controls & Kernel connection badge
-    │   │   └── ExportModal.tsx        # Standalone Python script modal with download
-    │   ├── store/
-    │   │   └── useGraphStore.ts       # Zustand store for DAG graph state & WebSocket client
-    │   ├── App.tsx
-    │   └── index.css                  # Dark mode styling & connector animations
-    ├── package.json
-    └── vite.config.ts
-```
 
 ---
 

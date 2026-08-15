@@ -1,7 +1,7 @@
-# ⬡ PyCanvas (Node-Based DAG Python Execution Canvas)
+# ⬡ FlowNotebook
 
 <p align="center">
-  <strong>A visual Directed Acyclic Graph (DAG) alternative to linear Jupyter Notebooks.</strong><br>
+  <strong>The visual Flow & DAG alternative to linear Jupyter Notebooks for Python.</strong><br>
   Position Python code blocks freely on a 2D canvas, route data dependencies across explicit handles, and execute with zero-mutation isolated namespaces and real-time WebSocket telemetry.
 </p>
 
@@ -18,18 +18,18 @@
 
 ## 📸 UI Previews
 
-### 1. Overall DAG Canvas View
+### 1. Overall Canvas View
 *Interactive 2D graph canvas with customizable 4-port nodes, Monaco editor blocks, animated dependency edges, and real-time execution controls.*
 
 <p align="center">
-  <img src="./frontend/src/image/demo%201.png" alt="PyCanvas Overall Canvas View" width="100%" />
+  <img src="./frontend/src/image/demo%201.png" alt="FlowNotebook Overall Canvas View" width="100%" />
 </p>
 
 ### 2. Node Focus Mode (Click-to-Maximize)
 *Full-screen focus workspace featuring split-screen editing: full-height Monaco Python editor on the left and live tabular DataFrame viewer & console output on the right.*
 
 <p align="center">
-  <img src="./frontend/src/image/demo%202.png" alt="PyCanvas Maximized Node Focus Mode" width="100%" />
+  <img src="./frontend/src/image/demo%202.png" alt="FlowNotebook Maximized Node Focus Mode" width="100%" />
 </p>
 
 ---
@@ -108,7 +108,7 @@ pytest test_backend.py -v
 
 ## 📈 Default Seed Pipeline (Quant Backtest Demo)
 
-Upon initial launch, PyCanvas auto-populates with a complete 4-stage Quantitative Trading Pipeline:
+Upon initial launch, FlowNotebook auto-populates with a complete 4-stage Quantitative Trading Pipeline:
 
 ```mermaid
 graph LR
