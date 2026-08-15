@@ -268,6 +268,15 @@ interface GraphState {
   standaloneScript: string | null;
   isExportModalOpen: boolean;
   activeTabByNode: Record<string, 'console' | 'table' | 'variables'>;
+  projectName: string;
+  setProjectName: (name: string) => void;
+  currentUser: { id: string; name: string; email: string; avatarUrl?: string } | null;
+  setCurrentUser: (user: { id: string; name: string; email: string; avatarUrl?: string } | null) => void;
+  isStorageModalOpen: boolean;
+  storageModalMode: 'save' | 'open';
+  openStorageModal: (mode: 'save' | 'open') => void;
+  closeStorageModal: () => void;
+  loadProjectData: (data: { name?: string; nodes: CustomNode[]; edges: Edge[] }) => void;
 
   // Actions
   onNodesChange: OnNodesChange<CustomNode>;
@@ -306,6 +315,35 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   isExportModalOpen: false,
   activeTabByNode: {},
   maximizedNodeId: null,
+  projectName: 'Quantitative Alpha Pipeline',
+  currentUser: null,
+  isStorageModalOpen: false,
+  storageModalMode: 'save',
+
+  setProjectName: (name) => {
+    set({ projectName: name });
+  },
+
+  setCurrentUser: (user) => {
+    set({ currentUser: user });
+  },
+
+  openStorageModal: (mode) => {
+    set({ isStorageModalOpen: true, storageModalMode: mode });
+  },
+
+  closeStorageModal: () => {
+    set({ isStorageModalOpen: false });
+  },
+
+  loadProjectData: (data) => {
+    set({
+      projectName: data.name || get().projectName,
+      nodes: data.nodes || [],
+      edges: data.edges || [],
+      activeTabByNode: {},
+    });
+  },
 
   setMaximizedNodeId: (id) => {
     set({ maximizedNodeId: id });
