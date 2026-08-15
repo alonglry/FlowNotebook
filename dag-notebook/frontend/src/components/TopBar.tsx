@@ -8,9 +8,7 @@ import {
   Loader2,
   Save,
   FolderOpen,
-  Cloud,
-  ChevronLeft,
-  Shield
+  Cloud
 } from 'lucide-react';
 import { useGraphStore } from '../store/useGraphStore';
 
@@ -25,7 +23,6 @@ export const TopBar: React.FC = () => {
   const openStorageModal = useGraphStore((state) => state.openStorageModal);
   const currentUser = useGraphStore((state) => state.currentUser);
   const projectName = useGraphStore((state) => state.projectName);
-  const setCurrentView = useGraphStore((state) => state.setCurrentView);
 
   const getWsBadge = () => {
     switch (wsStatus) {
@@ -59,45 +56,21 @@ export const TopBar: React.FC = () => {
 
   return (
     <header className="h-14 px-5 bg-[#0e1422] border-b border-slate-800 flex items-center justify-between z-30 shrink-0 select-none shadow-lg">
-      {/* App Branding & Navigation */}
+      {/* App Branding */}
       <div className="flex items-center space-x-2.5">
-        <button
-          onClick={() => setCurrentView('dashboard')}
-          className="flex items-center space-x-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 hover:text-white rounded-lg transition-colors cursor-pointer"
-          title="Return to Pipelines Dashboard"
-        >
-          <ChevronLeft className="w-3.5 h-3.5" />
-          <span>Dashboard</span>
-        </button>
-
-        {currentUser?.email?.toLowerCase() === 'alonglry@gmail.com' && (
-          <button
-            onClick={() => setCurrentView('admin')}
-            className="flex items-center space-x-1 px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900/80 border border-amber-700 text-amber-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer shadow-sm"
-            title="Open Admin & Telemetry Portal"
-          >
-            <Shield className="w-3.5 h-3.5 text-amber-400" />
-            <span>Admin</span>
-          </button>
-        )}
-
-        <div className="h-4 w-px bg-slate-800" />
-
-        <div className="flex items-center space-x-2.5">
-          <div className="p-1.5 bg-gradient-to-tr from-sky-600 to-indigo-600 rounded-lg shadow-md flex items-center justify-center">
-            <Workflow className="w-4 h-4 text-white" />
+        <div className="p-1.5 bg-gradient-to-tr from-sky-600 to-indigo-600 rounded-lg shadow-md flex items-center justify-center">
+          <Workflow className="w-4 h-4 text-white" />
+        </div>
+        <div>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-xs font-bold tracking-tight text-white">{projectName || 'FlowNotebook'}</h1>
+            <span className="px-1.5 py-0.2 rounded bg-sky-950 text-sky-400 text-[9px] font-semibold uppercase tracking-wider border border-sky-800/80">
+              Python DAG
+            </span>
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-xs font-bold tracking-tight text-white">{projectName || 'FlowNotebook'}</h1>
-              <span className="px-1.5 py-0.2 rounded bg-sky-950 text-sky-400 text-[9px] font-semibold uppercase tracking-wider border border-sky-800/80">
-                Python DAG
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-500 truncate max-w-[180px] sm:max-w-xs font-mono">
-              Auto-saved
-            </p>
-          </div>
+          <p className="text-[10px] text-slate-500 truncate max-w-[180px] sm:max-w-xs font-mono">
+            Direct Acyclic Graph Workspace
+          </p>
         </div>
       </div>
 

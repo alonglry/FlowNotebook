@@ -503,19 +503,8 @@ interface GraphState {
   setIsExportModalOpen: (open: boolean) => void;
 }
 
-// Telemetry helper functions
-const sendTelemetry = (endpoint: string, payload: any) => {
-  fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).catch(() => {
-    // Silent fail for non-blocking telemetry
-  });
-};
-
 export const useGraphStore = create<GraphState>((set, get) => ({
-  currentView: 'landing',
+  currentView: 'canvas',
   setCurrentView: (view) => set({ currentView: view }),
   pipelines: DEFAULT_PIPELINES,
   activePipelineId: 'pipe_quant_alpha',
@@ -562,17 +551,6 @@ print("Pipeline initiated successfully.")
       currentView: 'canvas'
     });
 
-    // Send telemetry to backend
-    const currentUser = get().currentUser || {
-      id: 'usr_guest',
-      name: 'Guest User',
-      email: 'guest@flownotebook.dev'
-    };
-    sendTelemetry('/api/telemetry/pipeline', {
-      pipeline: newPipeline,
-      user: currentUser
-    });
-
     return newId;
   },
 
@@ -605,16 +583,6 @@ print("Pipeline initiated successfully.")
       updatedAt: Date.now()
     };
     set({ pipelines: [duplicate, ...get().pipelines] });
-
-    const currentUser = get().currentUser || {
-      id: 'usr_guest',
-      name: 'Guest User',
-      email: 'guest@flownotebook.dev'
-    };
-    sendTelemetry('/api/telemetry/pipeline', {
-      pipeline: duplicate,
-      user: currentUser
-    });
   },
 
   nodes: INITIAL_NODES,
@@ -637,13 +605,6 @@ print("Pipeline initiated successfully.")
 
   setCurrentUser: (user) => {
     set({ currentUser: user });
-    if (user) {
-      sendTelemetry('/api/telemetry/user', {
-        user,
-        action: 'login',
-        details: `User signed in as ${user.name} (${user.email})`
-      });
-    }
   },
 
   openStorageModal: (mode) => {
