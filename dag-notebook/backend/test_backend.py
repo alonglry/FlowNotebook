@@ -149,3 +149,28 @@ def test_standalone_compiler():
     assert "run_pipeline" in exec_scope
     ctx = exec_scope["run_pipeline"]()
     assert ctx["processed"] == 105.0
+
+
+def test_sandbox_timeout_interruption():
+    # Long loop or sleep with short timeout
+    code = """
+import time
+time.sleep(2)
+print("Should have timed out")
+"""
+    result = execute_node_isolated("timeout_node", code, {}, [], timeout_seconds=0.3)
+    assert result["status"] == "error"
+    assert "NodeExecutionTimeoutError" in result["error"]
+    assert "0.3s" in result["error"]
+
+
+def test_sandbox_output_truncation():
+    # Excessive stdout generation
+    code = """
+print("A" * 150000)
+"""
+    result = execute_node_isolated("spam_node", code, {}, [])
+    assert result["status"] == "success"
+    assert len(result["stdout"]) <= 101000
+    assert "Output truncated" in result["stdout"]
+

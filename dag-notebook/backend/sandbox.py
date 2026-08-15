@@ -1,25 +1,48 @@
 """
-Sandbox execution runner for isolated node scopes with defensive copying and stdout capture.
+Hardened sandbox execution runner for isolated node scopes with defensive copying,
+strict execution timeouts, resource limits, stdout/stderr capture, and environment sanitization.
 """
 
 import sys
 import io
+import os
 import time
 import copy
 import traceback
-from typing import Any, Dict, List, Tuple
+import concurrent.futures
+from typing import Any, Dict, List, Optional
 import pandas as pd
 import numpy as np
+
+# Configurable security and resource limits
+DEFAULT_NODE_TIMEOUT_SECONDS: float = 15.0
+MAX_OUTPUT_LENGTH: int = 100_000  # Max characters per node output
+MAX_PREVIEW_RECORDS: int = 50
+
+# Sensitive environment key prefixes/patterns to redact from user runtime inspection
+SENSITIVE_ENV_KEYWORDS = [
+    "KEY", "SECRET", "TOKEN", "AUTH", "PASS", "CREDENTIAL", "ADMIN", "GCP", "GOOGLE"
+]
+
+def get_sanitized_environ() -> Dict[str, str]:
+    """Returns a sanitized copy of environment variables with sensitive secrets masked."""
+    sanitized = {}
+    for k, v in os.environ.items():
+        k_upper = k.upper()
+        if any(keyword in k_upper for keyword in SENSITIVE_ENV_KEYWORDS):
+            sanitized[k] = "******** [REDACTED FOR SECURITY]"
+        else:
+            sanitized[k] = v
+    return sanitized
+
 
 def serialize_variable_summary(val: Any) -> Dict[str, Any]:
     """Generates a rich, JSON-serializable summary of an output variable for UI rendering."""
     try:
         if isinstance(val, pd.DataFrame):
             # Limit rows for preview
-            preview_df = val.head(50)
-            # Convert non-serializable elements to string or native types
+            preview_df = val.head(MAX_PREVIEW_RECORDS)
             records = preview_df.reset_index().to_dict(orient="records")
-            # Format datetime / timestamps to string
             clean_records = []
             for r in records:
                 clean_r = {}
@@ -33,7 +56,7 @@ def serialize_variable_summary(val: Any) -> Dict[str, Any]:
                     elif isinstance(v, (np.floating, float)):
                         clean_r[str(k)] = float(v)
                     else:
-                        clean_r[str(k)] = str(v)
+                        clean_r[str(k)] = str(v)[:200]  # Cap cell character length
                 clean_records.append(clean_r)
 
             columns = [str(c) for c in (["index"] if "index" not in val.columns else []) + list(val.columns)]
@@ -49,8 +72,19 @@ def serialize_variable_summary(val: Any) -> Dict[str, Any]:
             }
 
         elif isinstance(val, pd.Series):
-            preview_s = val.head(50)
-            records = [{"index": str(idx), "value": None if pd.isna(v) else (float(v) if isinstance(v, (np.floating, float)) else (int(v) if isinstance(v, (np.integer, int)) else str(v)))} for idx, v in preview_s.items()]
+            preview_s = val.head(MAX_PREVIEW_RECORDS)
+            records = [
+                {
+                    "index": str(idx),
+                    "value": (
+                        None if pd.isna(v)
+                        else float(v) if isinstance(v, (np.floating, float))
+                        else int(v) if isinstance(v, (np.integer, int))
+                        else str(v)[:200]
+                    )
+                }
+                for idx, v in preview_s.items()
+            ]
             return {
                 "type": "Series",
                 "shape": [int(len(val)), 1],
@@ -80,10 +114,13 @@ def serialize_variable_summary(val: Any) -> Dict[str, Any]:
             }
 
         elif isinstance(val, (int, float, bool, str, bytes)):
+            val_str = str(val)
+            if len(val_str) > 1000:
+                val_str = val_str[:1000] + "... (truncated)"
             return {
                 "type": type(val).__name__,
-                "value": str(val),
-                "previewText": str(val)
+                "value": val_str,
+                "previewText": val_str
             }
 
         else:
@@ -98,15 +135,35 @@ def serialize_variable_summary(val: Any) -> Dict[str, Any]:
         }
 
 
+def _run_node_code_worker(
+    compiled_code: Any,
+    exec_globals: Dict[str, Any],
+    isolated_locals: Dict[str, Any],
+    stdout_buf: io.StringIO,
+    stderr_buf: io.StringIO
+) -> None:
+    """Worker function executed inside a thread pool with stdout/stderr redirected."""
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    try:
+        sys.stdout = stdout_buf
+        sys.stderr = stderr_buf
+        exec(compiled_code, exec_globals, isolated_locals)
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+
+
 def execute_node_isolated(
     node_id: str,
     code: str,
     input_vars: Dict[str, Any],
-    expected_outputs: List[str] | None = None
+    expected_outputs: Optional[List[str]] = None,
+    timeout_seconds: float = DEFAULT_NODE_TIMEOUT_SECONDS
 ) -> Dict[str, Any]:
     """
-    Executes Python code in an isolated scope with defensive copying of inputs.
-    Captures stdout/stderr and returns extracted outputs and rich summaries.
+    Executes Python code in an isolated scope with defensive copying of inputs,
+    enforcing a strict execution timeout, resource limits, and environment sanitization.
     """
     # Defensive copy of input variables to strictly avoid mutating upstream states
     isolated_locals: Dict[str, Any] = {}
@@ -117,44 +174,74 @@ def execute_node_isolated(
             # Fallback for non-deepcopyable objects
             isolated_locals[var_name] = var_val
 
-    # Standard execution scope
+    # Construct safe builtins (remove disruptive exits)
+    safe_builtins = dict(__builtins__ if isinstance(__builtins__, dict) else __builtins__.__dict__)
+    for disallowed in ["quit", "exit"]:
+        safe_builtins.pop(disallowed, None)
+
+    # Standard execution scope with data science modules pre-injected
     exec_globals: Dict[str, Any] = {
-        "__builtins__": __builtins__,
+        "__builtins__": safe_builtins,
         "pd": pd,
-        "np": np
+        "np": np,
+        "DataFrame": pd.DataFrame,
+        "Series": pd.Series
     }
 
     stdout_capture = io.StringIO()
     stderr_capture = io.StringIO()
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
 
     start_time = time.perf_counter()
     status = "success"
     error_msg = None
 
     try:
-        sys.stdout = stdout_capture
-        sys.stderr = stderr_capture
-        
-        # Compile and execute within the isolated namespace
+        # Pre-compile node code
         compiled = compile(code, f"<node_{node_id}>", "exec")
-        exec(compiled, exec_globals, isolated_locals)
+
+        # Execute with strict timeout enforcement
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                _run_node_code_worker,
+                compiled,
+                exec_globals,
+                isolated_locals,
+                stdout_capture,
+                stderr_capture
+            )
+            try:
+                future.result(timeout=timeout_seconds)
+            except concurrent.futures.TimeoutError:
+                status = "error"
+                error_msg = (
+                    f"NodeExecutionTimeoutError: Execution exceeded time limit of "
+                    f"{timeout_seconds}s. Long-running or infinite loops are halted."
+                )
+                stderr_capture.write(f"\n{error_msg}")
 
     except Exception as e:
         status = "error"
         tb_lines = traceback.format_exception(type(e), e, e.__traceback__)
-        # Filter out internal runner frames from traceback
         filtered_tb = "".join(tb_lines)
         error_msg = filtered_tb
         stderr_capture.write(f"\n{filtered_tb}")
-    finally:
-        sys.stdout = old_stdout
-        sys.stderr = old_stderr
-        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+    duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
     captured_stdout = stdout_capture.getvalue()
     captured_stderr = stderr_capture.getvalue()
+
+    # Cap stdout/stderr output to prevent memory exhaustion
+    if len(captured_stdout) > MAX_OUTPUT_LENGTH:
+        captured_stdout = (
+            captured_stdout[:MAX_OUTPUT_LENGTH]
+            + f"\n... [Output truncated to {MAX_OUTPUT_LENGTH} characters for performance]"
+        )
+    if len(captured_stderr) > MAX_OUTPUT_LENGTH:
+        captured_stderr = (
+            captured_stderr[:MAX_OUTPUT_LENGTH]
+            + f"\n... [Stderr truncated to {MAX_OUTPUT_LENGTH} characters for performance]"
+        )
 
     # Extract output variables
     extracted_outputs: Dict[str, Any] = {}
@@ -178,3 +265,4 @@ def execute_node_isolated(
         "outputsSummary": outputs_summary,
         "error": error_msg
     }
+

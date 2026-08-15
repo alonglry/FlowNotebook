@@ -12,16 +12,34 @@ ENV/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Databases
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 flownotebook_admin.db
+
+# Secrets, Environment & Credentials
+.env
+.env.*
+!.env.example
+*.env
+*.key
+*.pem
+*.cert
+*.crt
+*.pfx
+*credentials*.json
+*service_account*.json
+*client_secret*.json
 
 # Node / Frontend
 node_modules/
 dist/
 dist-ssr/
-.env
 .env.local
 .env.*.local
 *.local
@@ -29,7 +47,12 @@ dist-ssr/
 
 # IDE / OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 .vscode/
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -39,3 +62,4 @@ dist-ssr/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
