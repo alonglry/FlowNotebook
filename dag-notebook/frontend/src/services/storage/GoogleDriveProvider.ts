@@ -24,14 +24,21 @@ export class GoogleDriveProvider implements StorageProvider {
     await this.loadScript('https://accounts.google.com/gsi/client');
     await this.loadScript('https://apis.google.com/js/api.js');
 
-    // Restore cached session if token exists
+    // Restore cached session if user/token exists
     const cachedUser = localStorage.getItem('flownotebook_google_user');
     const cachedToken = localStorage.getItem('flownotebook_google_token');
     const expiry = localStorage.getItem('flownotebook_google_token_expiry');
 
-    if (cachedUser && cachedToken && expiry && Date.now() < Number(expiry)) {
-      this.user = JSON.parse(cachedUser);
+    if (cachedUser) {
+      try {
+        this.user = JSON.parse(cachedUser);
+      } catch (e) {}
+    }
+
+    if (cachedToken && expiry && Date.now() < Number(expiry)) {
       this.accessToken = cachedToken;
+      this.isAuthenticated = true;
+    } else if (this.user) {
       this.isAuthenticated = true;
     }
   }
@@ -53,6 +60,12 @@ export class GoogleDriveProvider implements StorageProvider {
   }
 
   async signIn(): Promise<UserProfile | null> {
+    // If already authenticated with a valid token, return immediately
+    const expiry = localStorage.getItem('flownotebook_google_token_expiry');
+    if (this.isAuthenticated && this.user && this.accessToken && expiry && Date.now() < Number(expiry)) {
+      return this.user;
+    }
+
     if (!this.isAvailable) {
       // Friendly prompt allowing instant demo testing without requiring Google Cloud keys
       const useDemo = confirm(
@@ -122,11 +135,18 @@ export class GoogleDriveProvider implements StorageProvider {
         },
       });
 
-      this.tokenClient.requestAccessToken({ prompt: 'consent' });
+      // Use prompt: '' so Google Identity Services skips consent screen if user already consented once
+      this.tokenClient.requestAccessToken({ prompt: '' });
     });
   }
 
   async signOut(): Promise<void> {
+    const google = (window as any).google;
+    if (google && this.accessToken) {
+      try {
+        google.accounts.oauth2.revoke(this.accessToken, () => {});
+      } catch (e) {}
+    }
     this.accessToken = null;
     this.isAuthenticated = false;
     this.user = null;
