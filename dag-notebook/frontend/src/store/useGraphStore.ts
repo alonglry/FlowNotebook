@@ -555,10 +555,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Direct connect to backend port 8000 in dev mode
-    const isDev = window.location.port !== '8000';
-    const hostname = window.location.hostname || 'localhost';
-    const host = isDev ? `${hostname}:8000` : window.location.host;
+    // Connect to backend port 8000 ONLY when running on local development (localhost / 127.0.0.1 on non-8000 port)
+    const isLocalDev =
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+      window.location.port !== '8000';
+
+    const host = isLocalDev ? `${window.location.hostname}:8000` : window.location.host;
     const wsUrl = (import.meta as any).env?.VITE_BACKEND_WS_URL || `${protocol}//${host}/ws/execute`;
 
     console.log('[FlowNotebook] Initializing WebSocket connection to:', wsUrl);
