@@ -78,7 +78,18 @@ def compile_dag_to_script(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any
         # Indent code body
         if code:
             for code_line in code.split("\n"):
-                script_lines.append(f"    {code_line}")
+                stripped = code_line.strip()
+                if stripped.startswith("!"):
+                    cmd = stripped[1:].strip()
+                    indent = code_line[:len(code_line) - len(code_line.lstrip())]
+                    script_lines.append(f"    {indent}import subprocess, sys")
+                    script_lines.append(f"    {indent}_proc = subprocess.run({cmd!r}, shell=True, capture_output=True, text=True)")
+                    script_lines.append(f"    {indent}sys.stdout.write(_proc.stdout)")
+                    script_lines.append(f"    {indent}sys.stderr.write(_proc.stderr)")
+                    script_lines.append(f"    {indent}if _proc.returncode != 0:")
+                    script_lines.append(f"    {indent}    raise RuntimeError(f'Shell command failed with exit code {{_proc.returncode}}:\\n{{_proc.stderr.strip() or _proc.stdout.strip()}}')")
+                else:
+                    script_lines.append(f"    {code_line}")
         else:
             script_lines.append("    pass")
 

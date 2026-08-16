@@ -14,6 +14,9 @@ import { useGraphStore } from '../store/useGraphStore';
 import { Terminal } from './Terminal';
 
 export const MaximizedNodeModal: React.FC = () => {
+  const theme = useGraphStore((state) => state.theme);
+  const isDark = theme === 'dark';
+
   const maximizedNodeId = useGraphStore((state) => state.maximizedNodeId);
   const setMaximizedNodeId = useGraphStore((state) => state.setMaximizedNodeId);
   const nodes = useGraphStore((state) => state.nodes);
@@ -87,36 +90,46 @@ export const MaximizedNodeModal: React.FC = () => {
     switch (status) {
       case 'running':
         return (
-          <span className="flex items-center space-x-1 px-2.5 py-1 rounded-full bg-amber-950/80 border border-amber-600/50 text-amber-300 text-xs animate-pulse">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+          <span className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs animate-pulse ${
+            isDark ? 'bg-amber-950/80 border border-amber-600/50 text-amber-300' : 'bg-amber-50 border border-amber-300 text-amber-800'
+          }`}>
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
             <span>Running...</span>
           </span>
         );
       case 'queued':
         return (
-          <span className="flex items-center space-x-1 px-2.5 py-1 rounded-full bg-sky-950/80 border border-sky-600/50 text-sky-300 text-xs">
+          <span className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs ${
+            isDark ? 'bg-sky-950/80 border border-sky-600/50 text-sky-300' : 'bg-sky-50 border border-sky-300 text-sky-800'
+          }`}>
             <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
             <span>Queued</span>
           </span>
         );
       case 'success':
         return (
-          <span className="flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-600/50 text-emerald-300 text-xs">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          <span className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs ${
+            isDark ? 'bg-emerald-950/80 border border-emerald-600/50 text-emerald-300' : 'bg-emerald-50 border border-emerald-300 text-emerald-800'
+          }`}>
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
             <span>Success</span>
           </span>
         );
       case 'error':
         return (
-          <span className="flex items-center space-x-1 px-2.5 py-1 rounded-full bg-rose-950/80 border border-rose-600/50 text-rose-300 text-xs">
-            <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+          <span className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs ${
+            isDark ? 'bg-rose-950/80 border border-rose-600/50 text-rose-300' : 'bg-rose-50 border border-rose-300 text-rose-800'
+          }`}>
+            <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
             <span>Error</span>
           </span>
         );
       default:
         return (
-          <span className="flex items-center space-x-1 px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-400 text-xs">
-            <span className="w-2 h-2 rounded-full bg-slate-500" />
+          <span className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs ${
+            isDark ? 'bg-slate-800/80 border border-slate-700/60 text-slate-400' : 'bg-slate-100 border border-slate-200 text-slate-600'
+          }`}>
+            <span className="w-2 h-2 rounded-full bg-slate-400" />
             <span>Idle</span>
           </span>
         );
@@ -124,12 +137,16 @@ export const MaximizedNodeModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in zoom-in-95 duration-200">
-      <div className="relative w-full h-full max-w-[96vw] max-h-[94vh] bg-[#0e1422] border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className={`relative w-full h-full max-w-[96vw] max-h-[94vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border ${
+        isDark ? 'bg-[#0e1422] border-slate-700/80' : 'bg-white border-slate-200'
+      }`}>
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between px-5 py-3 bg-[#131b2e] border-b border-slate-800 shrink-0">
+        <div className={`flex items-center justify-between px-5 py-3 border-b shrink-0 transition-colors ${
+          isDark ? 'bg-[#131b2e] border-slate-800' : 'bg-slate-50 border-slate-200'
+        }`}>
           <div className="flex items-center space-x-3 flex-1 min-w-0">
-            <div className="w-3 h-3 rounded-full bg-sky-400 shadow-md shadow-sky-500/50" />
+            <div className="w-3 h-3 rounded-full bg-sky-500 shadow-md shadow-sky-500/50" />
             {isEditingTitle ? (
               <input
                 type="text"
@@ -137,28 +154,37 @@ export const MaximizedNodeModal: React.FC = () => {
                 autoFocus
                 onChange={(e) => setTitleInput(e.target.value)}
                 onBlur={handleTitleSubmit}
-                onKeyDown={(e) => e.key === 'Enter' && handleTitleSubmit()}
-                className="px-2 py-1 bg-slate-900 border border-sky-500 rounded text-sm text-white font-bold outline-none w-72"
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') handleTitleSubmit();
+                }}
+                className={`px-2 py-1 rounded text-sm font-bold outline-none w-72 border nodrag nopan nokey ${
+                  isDark ? 'bg-slate-900 border-sky-500 text-white' : 'bg-white border-sky-500 text-slate-900'
+                }`}
               />
             ) : (
               <h2
                 onDoubleClick={() => setIsEditingTitle(true)}
                 title="Double click to rename"
-                className="text-base font-bold text-white truncate cursor-pointer hover:text-sky-300 transition-colors"
+                className={`text-base font-bold truncate cursor-pointer transition-colors ${
+                  isDark ? 'text-white hover:text-sky-300' : 'text-slate-900 hover:text-sky-600'
+                }`}
               >
                 {data.title}
               </h2>
             )}
 
-            <span className="text-xs text-slate-500 font-mono">({maximizedNodeId})</span>
+            <span className={`text-xs font-mono ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>({maximizedNodeId})</span>
 
-            <div className="h-4 w-px bg-slate-700 mx-2" />
+            <div className={`h-4 w-px mx-2 ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`} />
 
             {getStatusBadge()}
 
             {data.execution?.executionTimeMs !== undefined && (
-              <div className="flex items-center space-x-1 text-xs text-slate-400 bg-slate-900/80 px-2.5 py-1 rounded border border-slate-800">
-                <Clock className="w-3.5 h-3.5 text-sky-400" />
+              <div className={`flex items-center space-x-1 text-xs px-2.5 py-1 rounded border ${
+                isDark ? 'bg-slate-900/80 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-600 shadow-2xs'
+              }`}>
+                <Clock className="w-3.5 h-3.5 text-sky-500" />
                 <span>{data.execution.executionTimeMs} ms</span>
               </div>
             )}
@@ -179,7 +205,11 @@ export const MaximizedNodeModal: React.FC = () => {
             <button
               onClick={() => setMaximizedNodeId(null)}
               title="Minimize (Exit focus mode)"
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition-colors border border-slate-700 cursor-pointer"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer ${
+                isDark
+                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
+              }`}
             >
               <Minimize2 className="w-3.5 h-3.5" />
               <span>Minimize</span>
@@ -189,7 +219,9 @@ export const MaximizedNodeModal: React.FC = () => {
             <button
               onClick={() => setMaximizedNodeId(null)}
               title="Close (Esc)"
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+              }`}
             >
               <X className="w-5 h-5" />
             </button>
@@ -197,20 +229,26 @@ export const MaximizedNodeModal: React.FC = () => {
         </div>
 
         {/* Variables Header Bar */}
-        <div className="flex items-center justify-between px-5 py-2 bg-[#090d16] border-b border-slate-800/80 text-xs shrink-0">
+        <div className={`flex items-center justify-between px-5 py-2 border-b text-xs shrink-0 transition-colors ${
+          isDark ? 'bg-[#090d16] border-slate-800/80' : 'bg-slate-50 border-slate-200'
+        }`}>
           {/* Inputs Section */}
           <div className="flex items-center space-x-2">
-            <span className="text-slate-400 font-semibold uppercase text-[11px] tracking-wider">Inputs:</span>
+            <span className={`font-semibold uppercase text-[11px] tracking-wider ${
+              isDark ? 'text-slate-400' : 'text-slate-500'
+            }`}>Inputs:</span>
             <div className="flex items-center space-x-1.5 flex-wrap">
               {data.inputs.map((inp) => (
                 <span
                   key={inp}
-                  className="flex items-center space-x-1 px-2 py-0.5 rounded bg-sky-950/80 border border-sky-800/80 text-sky-300 font-mono text-[11px]"
+                  className={`flex items-center space-x-1 px-2 py-0.5 rounded font-mono text-[11px] border ${
+                    isDark ? 'bg-sky-950/80 border-sky-800/80 text-sky-300' : 'bg-sky-50 border-sky-200 text-sky-700 font-medium'
+                  }`}
                 >
                   <span>{inp}</span>
                   <button
                     onClick={() => removeNodeInput(maximizedNodeId, inp)}
-                    className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer"
+                    className="text-slate-400 hover:text-rose-500 ml-1 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -218,22 +256,27 @@ export const MaximizedNodeModal: React.FC = () => {
               ))}
 
               {showAddInp ? (
-                <form onSubmit={handleAddInput} className="flex items-center space-x-1">
+                <form onSubmit={handleAddInput} className="flex items-center space-x-1 nodrag nopan nokey">
                   <input
                     type="text"
                     value={newInp}
                     placeholder="var_name"
                     autoFocus
                     onChange={(e) => setNewInp(e.target.value)}
-                    className="px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-xs text-sky-300 outline-none w-28"
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className={`px-2 py-0.5 rounded text-xs outline-none w-28 border nodrag nopan nokey ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-sky-300' : 'bg-white border-slate-300 text-sky-700'
+                    }`}
                   />
-                  <button type="submit" className="px-1.5 py-0.5 bg-sky-600 rounded text-white text-xs">
+                  <button type="submit" className="px-1.5 py-0.5 bg-sky-600 rounded text-white text-xs cursor-pointer">
                     ✓
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowAddInp(false)}
-                    className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-400 text-xs"
+                    className={`px-1.5 py-0.5 rounded text-xs cursor-pointer ${
+                      isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'
+                    }`}
                   >
                     ✕
                   </button>
@@ -241,7 +284,9 @@ export const MaximizedNodeModal: React.FC = () => {
               ) : (
                 <button
                   onClick={() => setShowAddInp(true)}
-                  className="flex items-center space-x-1 px-2 py-0.5 bg-slate-800/80 hover:bg-slate-700 text-sky-400 rounded text-[11px] transition-colors cursor-pointer"
+                  className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
+                    isDark ? 'bg-slate-800/80 hover:bg-slate-700 text-sky-400' : 'bg-slate-200 hover:bg-slate-300 text-sky-700'
+                  }`}
                 >
                   <Plus className="w-3 h-3" />
                   <span>Add Input</span>
@@ -252,17 +297,21 @@ export const MaximizedNodeModal: React.FC = () => {
 
           {/* Outputs Section */}
           <div className="flex items-center space-x-2">
-            <span className="text-slate-400 font-semibold uppercase text-[11px] tracking-wider">Outputs:</span>
+            <span className={`font-semibold uppercase text-[11px] tracking-wider ${
+              isDark ? 'text-slate-400' : 'text-slate-500'
+            }`}>Outputs:</span>
             <div className="flex items-center space-x-1.5 flex-wrap">
               {data.outputs.map((out) => (
                 <span
                   key={out}
-                  className="flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/80 text-emerald-300 font-mono text-[11px]"
+                  className={`flex items-center space-x-1 px-2 py-0.5 rounded font-mono text-[11px] border ${
+                    isDark ? 'bg-emerald-950/80 border-emerald-800/80 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-700 font-medium'
+                  }`}
                 >
                   <span>{out}</span>
                   <button
                     onClick={() => removeNodeOutput(maximizedNodeId, out)}
-                    className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer"
+                    className="text-slate-400 hover:text-rose-500 ml-1 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -270,22 +319,27 @@ export const MaximizedNodeModal: React.FC = () => {
               ))}
 
               {showAddOut ? (
-                <form onSubmit={handleAddOutput} className="flex items-center space-x-1">
+                <form onSubmit={handleAddOutput} className="flex items-center space-x-1 nodrag nopan nokey">
                   <input
                     type="text"
                     value={newOut}
                     placeholder="var_name"
                     autoFocus
                     onChange={(e) => setNewOut(e.target.value)}
-                    className="px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-xs text-emerald-300 outline-none w-28"
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className={`px-2 py-0.5 rounded text-xs outline-none w-28 border nodrag nopan nokey ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-emerald-300' : 'bg-white border-slate-300 text-emerald-700'
+                    }`}
                   />
-                  <button type="submit" className="px-1.5 py-0.5 bg-emerald-600 rounded text-white text-xs">
+                  <button type="submit" className="px-1.5 py-0.5 bg-emerald-600 rounded text-white text-xs cursor-pointer">
                     ✓
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowAddOut(false)}
-                    className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-400 text-xs"
+                    className={`px-1.5 py-0.5 rounded text-xs cursor-pointer ${
+                      isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'
+                    }`}
                   >
                     ✕
                   </button>
@@ -293,7 +347,9 @@ export const MaximizedNodeModal: React.FC = () => {
               ) : (
                 <button
                   onClick={() => setShowAddOut(true)}
-                  className="flex items-center space-x-1 px-2 py-0.5 bg-slate-800/80 hover:bg-slate-700 text-emerald-400 rounded text-[11px] transition-colors cursor-pointer"
+                  className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
+                    isDark ? 'bg-slate-800/80 hover:bg-slate-700 text-emerald-400' : 'bg-slate-200 hover:bg-slate-300 text-emerald-700'
+                  }`}
                 >
                   <Plus className="w-3 h-3" />
                   <span>Add Output</span>
@@ -306,16 +362,20 @@ export const MaximizedNodeModal: React.FC = () => {
         {/* Split Main Content Area */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-0 overflow-hidden">
           {/* Left Panel: Monaco Code Editor */}
-          <div className="flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 bg-[#1e1e1e] overflow-hidden">
-            <div className="px-4 py-2 bg-[#181818] border-b border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-              <span className="font-semibold text-slate-300">Python Script Editor</span>
-              <span className="text-[11px] text-slate-500 font-mono">Auto-syncs with canvas</span>
+          <div className={`flex flex-col border-b lg:border-b-0 lg:border-r overflow-hidden ${
+            isDark ? 'border-slate-800 bg-[#1e1e1e]' : 'border-slate-200 bg-white'
+          }`}>
+            <div className={`px-4 py-2 border-b flex items-center justify-between text-xs ${
+              isDark ? 'bg-[#181818] border-slate-800/80 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
+            }`}>
+              <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Python Script Editor</span>
+              <span className={`text-[11px] font-mono ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Auto-syncs with canvas</span>
             </div>
             <div className="flex-1 w-full h-full relative">
               <Editor
                 height="100%"
                 language="python"
-                theme="vs-dark"
+                theme={isDark ? 'vs-dark' : 'vs'}
                 value={data.code}
                 onChange={(value) => updateNodeCode(maximizedNodeId, value || '')}
                 options={{
@@ -335,10 +395,14 @@ export const MaximizedNodeModal: React.FC = () => {
           </div>
 
           {/* Right Panel: Full Console & Tabular Data Viewer */}
-          <div className="flex flex-col bg-[#0b0f17] overflow-hidden">
-            <div className="px-4 py-2 bg-[#0e1422] border-b border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-              <span className="font-semibold text-slate-300">Output Console & Data Inspector</span>
-              <span className="text-[11px] text-slate-500 font-mono">Live telemetry</span>
+          <div className={`flex flex-col overflow-hidden ${
+            isDark ? 'bg-[#0b0f17]' : 'bg-slate-50'
+          }`}>
+            <div className={`px-4 py-2 border-b flex items-center justify-between text-xs ${
+              isDark ? 'bg-[#0e1422] border-slate-800/80 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
+            }`}>
+              <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Output Console & Data Inspector</span>
+              <span className={`text-[11px] font-mono ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Live telemetry</span>
             </div>
             <div className="flex-1 overflow-auto">
               <Terminal nodeId={maximizedNodeId} execution={data.execution} />

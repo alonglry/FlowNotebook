@@ -51,10 +51,12 @@ class GraphExecutionEngine:
         self,
         nodes: List[Dict[str, Any]],
         edges: List[Dict[str, Any]],
-        target_node_id: Optional[str] = None
+        target_node_id: Optional[str] = None,
+        pipeline_id: str = "default_pipeline"
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Executes the graph (or a target node with its dependencies) in topologically sorted order.
+        Executes the graph (or a target node with its dependencies) in topologically sorted order
+        within the pipeline's isolated workspace.
         Yields real-time telemetry events for WebSocket streaming.
         """
         g = self.build_networkx_graph(nodes, edges)
@@ -172,7 +174,8 @@ class GraphExecutionEngine:
                 node_id=node_id,
                 code=code,
                 input_vars=input_vars,
-                expected_outputs=outputs
+                expected_outputs=outputs,
+                pipeline_id=pipeline_id
             )
 
             if result["status"] == "success":

@@ -164,13 +164,23 @@ print("Should have timed out")
     assert "0.3s" in result["error"]
 
 
-def test_sandbox_output_truncation():
-    # Excessive stdout generation
+def test_resource_protection_infinite_stdout():
+    # Attempt to output millions of characters
     code = """
-print("A" * 150000)
+for i in range(50000):
+    print("1234567890" * 5)
 """
     result = execute_node_isolated("spam_node", code, {}, [])
     assert result["status"] == "success"
+    # Ensure stdout was truncated to MAX_OUTPUT_LENGTH limit (100_000 chars)
     assert len(result["stdout"]) <= 101000
-    assert "Output truncated" in result["stdout"]
+    assert "[Output truncated" in result["stdout"]
 
+
+def test_preprocess_bang_command():
+    from sandbox import preprocess_code
+    raw_code = "!echo 'hello from shell'"
+    processed = preprocess_code(raw_code)
+    assert "subprocess.run('echo \\'hello from shell\\''" in processed or "subprocess.run" in processed
+    result = execute_node_isolated("bang_node", "!echo 'shell test'", {}, [])
+    assert result["status"] == "success"

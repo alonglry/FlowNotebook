@@ -15,12 +15,14 @@ import { MaximizedNodeModal } from './MaximizedNodeModal';
 import { useGraphStore, type CustomNode } from '../store/useGraphStore';
 
 export const Canvas: React.FC = () => {
+  const theme = useGraphStore((state) => state.theme);
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
   const onNodesChange = useGraphStore((state) => state.onNodesChange);
   const onEdgesChange = useGraphStore((state) => state.onEdgesChange);
   const onConnect = useGraphStore((state) => state.onConnect);
 
+  const isDark = theme === 'dark';
   const [isTipExpanded, setIsTipExpanded] = useState(false);
 
   const nodeTypes = useMemo(() => ({ codeNode: CodeNode }), []);
@@ -54,7 +56,9 @@ export const Canvas: React.FC = () => {
   );
 
   return (
-    <div className="relative w-full h-full bg-[#080c14] select-none">
+    <div className={`relative w-full h-full select-none transition-colors duration-200 ${
+      isDark ? 'bg-[#080c14]' : 'bg-slate-50'
+    }`}>
       <ReactFlow<CustomNode, Edge>
         nodes={nodes}
         edges={edges}
@@ -64,6 +68,7 @@ export const Canvas: React.FC = () => {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         isValidConnection={isValidConnection}
+        panActivationKeyCode={null}
         deleteKeyCode={['Backspace', 'Delete']}
         fitView
         fitViewOptions={{ padding: 0.15 }}
@@ -72,14 +77,14 @@ export const Canvas: React.FC = () => {
         defaultEdgeOptions={{
           type: 'customEdge',
           animated: true,
-          style: { stroke: '#0ea5e9', strokeWidth: 2.5 },
+          style: { stroke: isDark ? '#0ea5e9' : '#0284c7', strokeWidth: 2.5 },
         }}
       >
         <Background
           variant={BackgroundVariant.Dots}
           gap={24}
           size={1.5}
-          color="#334155"
+          color={isDark ? '#334155' : '#cbd5e1'}
         />
         <Controls
           showInteractive={false}
@@ -87,8 +92,8 @@ export const Canvas: React.FC = () => {
         />
         <MiniMap
           nodeStrokeWidth={3}
-          nodeColor="#1e293b"
-          maskColor="rgba(11, 15, 23, 0.75)"
+          nodeColor={isDark ? '#1e293b' : '#94a3b8'}
+          maskColor={isDark ? 'rgba(11, 15, 23, 0.75)' : 'rgba(241, 245, 249, 0.85)'}
           className="!bottom-6 !right-6"
         />
       </ReactFlow>
@@ -101,7 +106,11 @@ export const Canvas: React.FC = () => {
         {!isTipExpanded ? (
           <button
             onClick={() => setIsTipExpanded(true)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-900/85 hover:bg-slate-800/90 backdrop-blur-md border border-slate-800/80 rounded-xl text-xs font-medium text-slate-300 hover:text-white shadow-lg transition-all cursor-pointer"
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium backdrop-blur-md shadow-lg border transition-all cursor-pointer ${
+              isDark
+                ? 'bg-slate-900/85 hover:bg-slate-800/90 border-slate-800/80 text-slate-300 hover:text-white'
+                : 'bg-white/90 hover:bg-white border-slate-200 text-slate-700 hover:text-slate-900 shadow-slate-200'
+            }`}
             title="Show Canvas Tips"
           >
             <span className="text-amber-400">💡</span>
@@ -109,8 +118,14 @@ export const Canvas: React.FC = () => {
             <ChevronDown className="w-3.5 h-3.5 ml-0.5 text-slate-400" />
           </button>
         ) : (
-          <div className="bg-slate-900/85 backdrop-blur-md border border-slate-800/80 px-3.5 py-2.5 rounded-xl text-[11px] text-slate-400 space-y-1.5 shadow-xl transition-colors">
-            <div className="font-semibold text-slate-200 flex items-center justify-between space-x-4">
+          <div className={`backdrop-blur-md px-3.5 py-2.5 rounded-xl text-[11px] space-y-1.5 shadow-xl border transition-colors ${
+            isDark
+              ? 'bg-slate-900/85 border-slate-800/80 text-slate-400'
+              : 'bg-white/90 border-slate-200 text-slate-600 shadow-slate-200'
+          }`}>
+            <div className={`font-semibold flex items-center justify-between space-x-4 ${
+              isDark ? 'text-slate-200' : 'text-slate-900'
+            }`}>
               <div className="flex items-center space-x-1.5">
                 <span className="text-amber-400">💡</span>
                 <span>DAG Execution Canvas</span>
@@ -123,18 +138,20 @@ export const Canvas: React.FC = () => {
                 <ChevronUp className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-400">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
               <div className="flex items-center space-x-1.5">
-                <span className="w-2 h-2 rounded-full bg-sky-400" />
+                <span className="w-2 h-2 rounded-full bg-sky-500" />
                 <span>Top/Left: Inputs</span>
               </div>
               <div className="flex items-center space-x-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span>Right/Bottom: Outputs</span>
               </div>
             </div>
-            <div className="text-[10px] text-slate-500 pt-0.5 border-t border-slate-800/60">
-              Click <span className="text-rose-400 font-bold">×</span> on line or press <span className="text-slate-300 font-mono">Del</span> to remove line. Click ⛶ to maximize node.
+            <div className={`text-[10px] pt-0.5 border-t ${
+              isDark ? 'text-slate-500 border-slate-800/60' : 'text-slate-400 border-slate-200'
+            }`}>
+              Click <span className="text-rose-500 font-bold">×</span> on line or press <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Del</span> to remove line. Click ⛶ to maximize node.
             </div>
           </div>
         )}

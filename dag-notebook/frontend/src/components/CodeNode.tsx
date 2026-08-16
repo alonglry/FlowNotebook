@@ -17,6 +17,9 @@ import { type CustomNode, useGraphStore } from '../store/useGraphStore';
 import { Terminal } from './Terminal';
 
 export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => {
+  const theme = useGraphStore((state) => state.theme);
+  const isDark = theme === 'dark';
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(data.title);
   const [newInp, setNewInp] = useState('');
@@ -66,52 +69,80 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
     switch (status) {
       case 'running':
         return (
-          <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-600/50 text-amber-300 text-[11px] animate-pulse">
-            <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+          <span className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-medium animate-pulse ${
+            isDark
+              ? 'bg-amber-950/80 border border-amber-600/50 text-amber-300'
+              : 'bg-amber-50 border border-amber-300 text-amber-800'
+          }`}>
+            <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
             <span>Running</span>
           </span>
         );
       case 'queued':
         return (
-          <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-sky-950/80 border border-sky-600/50 text-sky-300 text-[11px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
+          <span className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+            isDark
+              ? 'bg-sky-950/80 border border-sky-600/50 text-sky-300'
+              : 'bg-sky-50 border border-sky-300 text-sky-800'
+          }`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping" />
             <span>Queued</span>
           </span>
         );
       case 'success':
         return (
-          <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-600/50 text-emerald-300 text-[11px]">
-            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+          <span className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+            isDark
+              ? 'bg-emerald-950/80 border border-emerald-600/50 text-emerald-300'
+              : 'bg-emerald-50 border border-emerald-300 text-emerald-800'
+          }`}>
+            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
             <span>Success</span>
           </span>
         );
       case 'error':
         return (
-          <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-600/50 text-rose-300 text-[11px]">
-            <AlertCircle className="w-3 h-3 text-rose-400" />
+          <span className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+            isDark
+              ? 'bg-rose-950/80 border border-rose-600/50 text-rose-300'
+              : 'bg-rose-50 border border-rose-300 text-rose-800'
+          }`}>
+            <AlertCircle className="w-3 h-3 text-rose-500" />
             <span>Error</span>
           </span>
         );
       default:
         return (
-          <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-400 text-[11px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+          <span className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+            isDark
+              ? 'bg-slate-800/80 border border-slate-700/60 text-slate-400'
+              : 'bg-slate-100 border border-slate-200 text-slate-600'
+          }`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
             <span>Idle</span>
           </span>
         );
     }
   };
 
+  const handleBorderClass = isDark ? '!border-[#0e1422]' : '!border-white';
+
   return (
     <div
-      className={`group relative w-[430px] rounded-xl shadow-2xl transition-all duration-200 border bg-[#111827] text-slate-100 flex flex-col ${
+      className={`group relative w-[430px] rounded-xl shadow-2xl transition-all duration-200 border flex flex-col ${
+        isDark ? 'bg-[#111827] text-slate-100' : 'bg-white text-slate-900 shadow-slate-300/40'
+      } ${
         selected
-          ? 'border-sky-500 ring-2 ring-sky-500/30'
+          ? isDark
+            ? 'border-sky-500 ring-2 ring-sky-500/30'
+            : 'border-sky-600 ring-2 ring-sky-500/30'
           : status === 'error'
           ? 'border-rose-500/80'
           : status === 'running'
           ? 'border-amber-500/80 shadow-amber-500/10'
-          : 'border-slate-800 hover:border-slate-700'
+          : isDark
+          ? 'border-slate-800 hover:border-slate-700'
+          : 'border-slate-200 hover:border-slate-300'
       }`}
     >
       {/* ========================================================================= */}
@@ -123,7 +154,7 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
         type="target"
         position={Position.Top}
         id="top"
-        className="!w-3.5 !h-3.5 !bg-sky-400 !border-2 !border-[#0e1422] !-top-[7px] node-connector cursor-crosshair z-30"
+        className={`!w-3.5 !h-3.5 !bg-sky-500 !border-2 ${handleBorderClass} !-top-[7px] node-connector cursor-crosshair z-30`}
         title="Top port (Input/Dependency)"
       />
 
@@ -132,7 +163,7 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
         type="source"
         position={Position.Bottom}
         id="bottom"
-        className="!w-3.5 !h-3.5 !bg-emerald-400 !border-2 !border-[#0e1422] !-bottom-[7px] node-connector cursor-crosshair z-30"
+        className={`!w-3.5 !h-3.5 !bg-emerald-500 !border-2 ${handleBorderClass} !-bottom-[7px] node-connector cursor-crosshair z-30`}
         title="Bottom port (Output/Downstream)"
       />
 
@@ -141,7 +172,7 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
         type="target"
         position={Position.Left}
         id="left"
-        className="!w-3.5 !h-3.5 !bg-sky-400 !border-2 !border-[#0e1422] !-left-[7px] !top-1/2 !-translate-y-1/2 node-connector cursor-crosshair z-30"
+        className={`!w-3.5 !h-3.5 !bg-sky-500 !border-2 ${handleBorderClass} !-left-[7px] !top-1/2 !-translate-y-1/2 node-connector cursor-crosshair z-30`}
         title="Left port (Input)"
       />
 
@@ -150,12 +181,14 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
         type="source"
         position={Position.Right}
         id="right"
-        className="!w-3.5 !h-3.5 !bg-emerald-400 !border-2 !border-[#0e1422] !-right-[7px] !top-1/2 !-translate-y-1/2 node-connector cursor-crosshair z-30"
+        className={`!w-3.5 !h-3.5 !bg-emerald-500 !border-2 ${handleBorderClass} !-right-[7px] !top-1/2 !-translate-y-1/2 node-connector cursor-crosshair z-30`}
         title="Right port (Output)"
       />
 
       {/* Node Header */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 bg-[#161f30] rounded-t-xl border-b border-slate-800/80">
+      <div className={`flex items-center justify-between px-3.5 py-2.5 rounded-t-xl border-b transition-colors ${
+        isDark ? 'bg-[#161f30] border-slate-800/80' : 'bg-slate-50 border-slate-200'
+      }`}>
         <div className="flex items-center space-x-2 flex-1 mr-2 min-w-0">
           <div className="w-2.5 h-2.5 rounded-full bg-sky-500 shrink-0" />
           {isEditingTitle ? (
@@ -165,14 +198,21 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
               autoFocus
               onChange={(e) => setTitleInput(e.target.value)}
               onBlur={handleTitleSubmit}
-              onKeyDown={(e) => e.key === 'Enter' && handleTitleSubmit()}
-              className="px-1.5 py-0.5 bg-slate-900 border border-sky-500 rounded text-xs text-white font-semibold outline-none w-full"
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') handleTitleSubmit();
+              }}
+              className={`px-1.5 py-0.5 rounded text-xs font-semibold outline-none w-full border nodrag nopan nokey ${
+                isDark ? 'bg-slate-900 border-sky-500 text-white' : 'bg-white border-sky-500 text-slate-900'
+              }`}
             />
           ) : (
             <span
               onDoubleClick={() => setIsEditingTitle(true)}
               title="Double click to rename"
-              className="font-semibold text-xs text-slate-200 truncate cursor-pointer hover:text-sky-300 transition-colors"
+              className={`font-semibold text-xs truncate cursor-pointer transition-colors ${
+                isDark ? 'text-slate-200 hover:text-sky-300' : 'text-slate-800 hover:text-sky-600'
+              }`}
             >
               {data.title}
             </span>
@@ -196,7 +236,11 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
           <button
             onClick={() => setMaximizedNodeId(id)}
             title="Maximize Node (Focus Mode)"
-            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-sky-300 transition-colors cursor-pointer"
+            className={`p-1 rounded transition-colors cursor-pointer ${
+              isDark
+                ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-sky-300'
+                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
           >
             <Maximize2 className="w-3 h-3" />
           </button>
@@ -205,7 +249,11 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
           <button
             onClick={() => toggleNodeCollapse(id)}
             title={data.isCollapsed ? 'Expand node' : 'Collapse node'}
-            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+            className={`p-1 rounded transition-colors cursor-pointer ${
+              isDark
+                ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
           >
             {data.isCollapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
           </button>
@@ -214,7 +262,11 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
           <button
             onClick={() => deleteNode(id)}
             title="Delete node"
-            className="p-1 rounded bg-slate-800 hover:bg-rose-900/60 hover:text-rose-300 text-slate-400 transition-colors cursor-pointer"
+            className={`p-1 rounded transition-colors cursor-pointer ${
+              isDark
+                ? 'bg-slate-800 hover:bg-rose-900/60 hover:text-rose-300 text-slate-400'
+                : 'bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-500 border border-slate-200'
+            }`}
           >
             <Trash2 className="w-3 h-3" />
           </button>
@@ -225,14 +277,20 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
       {!data.isCollapsed && (
         <div className="flex flex-col">
           {/* Handles & Variables Bar */}
-          <div className="grid grid-cols-2 gap-2 px-3 py-2 bg-[#0d131f] border-b border-slate-800/80 text-[11px]">
+          <div className={`grid grid-cols-2 gap-2 px-3 py-2 border-b text-[11px] ${
+            isDark ? 'bg-[#0d131f] border-slate-800/80' : 'bg-slate-50/70 border-slate-200'
+          }`}>
             {/* Inputs Column */}
             <div className="flex flex-col space-y-1.5">
-              <div className="flex items-center justify-between text-slate-400 font-medium">
-                <span className="text-[10px] uppercase tracking-wider text-slate-400">Inputs</span>
+              <div className="flex items-center justify-between font-medium">
+                <span className={`text-[10px] uppercase tracking-wider ${
+                  isDark ? 'text-slate-400' : 'text-slate-500'
+                }`}>Inputs</span>
                 <button
                   onClick={() => setShowAddInp(!showAddInp)}
-                  className="p-0.5 rounded hover:bg-slate-800 text-sky-400 transition-colors cursor-pointer"
+                  className={`p-0.5 rounded transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 text-sky-400' : 'hover:bg-slate-200 text-sky-600'
+                  }`}
                   title="Add input variable name"
                 >
                   <Plus className="w-3 h-3" />
@@ -240,14 +298,19 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
               </div>
 
               {showAddInp && (
-                <form onSubmit={handleAddInput} className="flex items-center space-x-1">
+                <form onSubmit={handleAddInput} className="flex items-center space-x-1 nodrag nopan nokey">
                   <input
                     type="text"
                     value={newInp}
                     placeholder="var_name"
                     autoFocus
                     onChange={(e) => setNewInp(e.target.value)}
-                    className="w-full px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] text-sky-300 outline-none"
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className={`w-full px-1.5 py-0.5 rounded text-[10px] outline-none border nodrag nopan nokey ${
+                      isDark
+                        ? 'bg-slate-900 border-slate-700 text-sky-300'
+                        : 'bg-white border-slate-300 text-sky-700'
+                    }`}
                   />
                   <button type="submit" className="p-0.5 bg-sky-600 rounded text-white text-[10px] cursor-pointer">
                     ✓
@@ -259,30 +322,40 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
                 {data.inputs.map((inp) => (
                   <div
                     key={inp}
-                    className="flex items-center space-x-1 bg-slate-900/90 border border-slate-800 px-2 py-0.5 rounded font-mono text-sky-300 text-[10px]"
+                    className={`flex items-center space-x-1 px-2 py-0.5 rounded font-mono text-[10px] border ${
+                      isDark
+                        ? 'bg-slate-900/90 border-slate-800 text-sky-300'
+                        : 'bg-sky-50 border-sky-200 text-sky-700 font-medium'
+                    }`}
                   >
                     <span>{inp}</span>
                     <button
                       onClick={() => removeNodeInput(id, inp)}
-                      className="text-slate-500 hover:text-rose-400 transition-colors ml-0.5 cursor-pointer"
+                      className="text-slate-400 hover:text-rose-500 transition-colors ml-0.5 cursor-pointer"
                     >
                       <X className="w-2.5 h-2.5" />
                     </button>
                   </div>
                 ))}
                 {data.inputs.length === 0 && !showAddInp && (
-                  <span className="text-slate-500 italic text-[10px]">No inputs (Source)</span>
+                  <span className={`italic text-[10px] ${
+                    isDark ? 'text-slate-500' : 'text-slate-400'
+                  }`}>No inputs (Source)</span>
                 )}
               </div>
             </div>
 
             {/* Outputs Column */}
             <div className="flex flex-col space-y-1.5 text-right">
-              <div className="flex items-center justify-between text-slate-400 font-medium flex-row-reverse">
-                <span className="text-[10px] uppercase tracking-wider text-slate-400">Outputs</span>
+              <div className="flex items-center justify-between font-medium flex-row-reverse">
+                <span className={`text-[10px] uppercase tracking-wider ${
+                  isDark ? 'text-slate-400' : 'text-slate-500'
+                }`}>Outputs</span>
                 <button
                   onClick={() => setShowAddOut(!showAddOut)}
-                  className="p-0.5 rounded hover:bg-slate-800 text-emerald-400 transition-colors cursor-pointer"
+                  className={`p-0.5 rounded transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 text-emerald-400' : 'hover:bg-slate-200 text-emerald-600'
+                  }`}
                   title="Add output variable name"
                 >
                   <Plus className="w-3 h-3" />
@@ -290,7 +363,7 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
               </div>
 
               {showAddOut && (
-                <form onSubmit={handleAddOutput} className="flex items-center space-x-1">
+                <form onSubmit={handleAddOutput} className="flex items-center space-x-1 nodrag nopan nokey">
                   <button type="submit" className="p-0.5 bg-emerald-600 rounded text-white text-[10px] cursor-pointer">
                     ✓
                   </button>
@@ -300,7 +373,12 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
                     placeholder="var_name"
                     autoFocus
                     onChange={(e) => setNewOut(e.target.value)}
-                    className="w-full px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] text-emerald-300 outline-none text-right"
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className={`w-full px-1.5 py-0.5 rounded text-[10px] outline-none text-right border nodrag nopan nokey ${
+                      isDark
+                        ? 'bg-slate-900 border-slate-700 text-emerald-300'
+                        : 'bg-white border-slate-300 text-emerald-700'
+                    }`}
                   />
                 </form>
               )}
@@ -309,30 +387,38 @@ export const CodeNode = memo(({ id, data, selected }: NodeProps<CustomNode>) => 
                 {data.outputs.map((out) => (
                   <div
                     key={out}
-                    className="flex items-center space-x-1 bg-slate-900/90 border border-slate-800 px-2 py-0.5 rounded font-mono text-emerald-300 text-[10px]"
+                    className={`flex items-center space-x-1 px-2 py-0.5 rounded font-mono text-[10px] border ${
+                      isDark
+                        ? 'bg-slate-900/90 border-slate-800 text-emerald-300'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-700 font-medium'
+                    }`}
                   >
                     <span>{out}</span>
                     <button
                       onClick={() => removeNodeOutput(id, out)}
-                      className="text-slate-500 hover:text-rose-400 transition-colors ml-0.5 cursor-pointer"
+                      className="text-slate-400 hover:text-rose-500 transition-colors ml-0.5 cursor-pointer"
                     >
                       <X className="w-2.5 h-2.5" />
                     </button>
                   </div>
                 ))}
                 {data.outputs.length === 0 && !showAddOut && (
-                  <span className="text-slate-500 italic text-[10px]">No outputs (Sink)</span>
+                  <span className={`italic text-[10px] ${
+                    isDark ? 'text-slate-500' : 'text-slate-400'
+                  }`}>No outputs (Sink)</span>
                 )}
               </div>
             </div>
           </div>
 
           {/* Monaco Editor Container */}
-          <div className="h-48 border-b border-slate-800/80 bg-[#1e1e1e]">
+          <div className={`h-48 border-b nodrag nopan nowheel nokey ${
+            isDark ? 'border-slate-800/80 bg-[#1e1e1e]' : 'border-slate-200 bg-white'
+          }`}>
             <Editor
               height="100%"
               language="python"
-              theme="vs-dark"
+              theme={isDark ? 'vs-dark' : 'vs'}
               value={data.code}
               onChange={(value) => updateNodeCode(id, value || '')}
               options={{

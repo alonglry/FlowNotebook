@@ -1,7 +1,7 @@
 import type { StorageProvider, ProjectData, ProjectMetadata, UserProfile } from './types';
 
 // Load credentials safely from environment without committing secrets to repository
-const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const DRIVE_FOLDER_NAME = 'FlowNotebook';
 const LOGIN_SCOPES = 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid';
 const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
@@ -439,6 +439,32 @@ export class GoogleDriveProvider implements StorageProvider {
     } catch (e) {
       console.error('[GoogleDrive] Load error:', e);
       return null;
+    }
+  }
+
+  async deleteProject(fileId: string): Promise<{ success: boolean; message?: string }> {
+    if (!this.isAuthenticated || !this.hasDriveAccess || !this.accessToken) {
+      const granted = await this.requestDriveAccess();
+      if (!granted) return { success: false, message: 'Google Drive permission not granted.' };
+    }
+
+    if (!fileId) return { success: false, message: 'Invalid file ID.' };
+
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      });
+
+      if (res.ok || res.status === 204 || res.status === 404) {
+        return { success: true, message: 'Deleted file from Google Drive.' };
+      }
+
+      const errData = await res.json().catch(() => ({}));
+      return { success: false, message: errData.error?.message || 'Failed to delete file from Google Drive.' };
+    } catch (e: any) {
+      console.error('[GoogleDrive] Delete error:', e);
+      return { success: false, message: e.message || 'Failed to delete file from Google Drive.' };
     }
   }
 }

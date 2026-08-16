@@ -1,6 +1,8 @@
 # Stage 1: Build React Frontend
 FROM node:20-alpine AS frontend-builder
 WORKDIR /frontend
+ARG VITE_GOOGLE_CLIENT_ID=580200184162-6n0hn15la70qopd7hc3tetccm6ok27md.apps.googleusercontent.com
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 COPY dag-notebook/frontend/package*.json ./
 RUN npm ci
 COPY dag-notebook/frontend/ ./
@@ -13,6 +15,8 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python requirements

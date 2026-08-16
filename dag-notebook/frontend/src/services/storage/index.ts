@@ -1,4 +1,3 @@
-import { LocalStorageProvider } from './LocalStorageProvider';
 import { FileExportProvider } from './FileExportProvider';
 import { GoogleDriveProvider } from './GoogleDriveProvider';
 import type { StorageProvider } from './types';
@@ -10,18 +9,15 @@ class StorageManager {
   public defaultProvider: StorageProvider;
   public googleDriveProvider: GoogleDriveProvider;
   public fileExportProvider: FileExportProvider;
-  public localStorageProvider: LocalStorageProvider;
 
   constructor() {
-    this.localStorageProvider = new LocalStorageProvider();
     this.fileExportProvider = new FileExportProvider();
     this.googleDriveProvider = new GoogleDriveProvider();
 
-    this.registerProvider(this.localStorageProvider);
     this.registerProvider(this.fileExportProvider);
     this.registerProvider(this.googleDriveProvider);
 
-    this.defaultProvider = this.localStorageProvider;
+    this.defaultProvider = this.fileExportProvider;
   }
 
   registerProvider(provider: StorageProvider) {
@@ -50,3 +46,4 @@ class StorageManager {
 }
 
 export const storageManager = new StorageManager();
+

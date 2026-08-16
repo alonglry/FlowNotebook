@@ -127,6 +127,22 @@ def export_py_file(req: CompileRequest):
 
 
 
+from workspace import workspace_manager
+
+
+@app.get("/api/workspaces/{pipeline_id}/files")
+def list_workspace_files(pipeline_id: str):
+    """Returns files in the isolated workspace of the given pipeline."""
+    return {"pipelineId": pipeline_id, "files": workspace_manager.list_files(pipeline_id)}
+
+
+@app.post("/api/workspaces/{pipeline_id}/reset")
+def reset_workspace(pipeline_id: str):
+    """Resets/cleans the isolated workspace and packages of the given pipeline."""
+    success = workspace_manager.clean_workspace(pipeline_id)
+    return {"pipelineId": pipeline_id, "success": success}
+
+
 @app.websocket("/ws/execute")
 async def websocket_execute_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -140,14 +156,15 @@ async def websocket_execute_endpoint(websocket: WebSocket):
             nodes = graph_data.get("nodes", [])
             edges = graph_data.get("edges", [])
             user_info = data.get("user")
+            pipeline_id = data.get("pipelineId") or data.get("pipeline_id") or "default_pipeline"
 
             if action == "run_graph":
                 if user_info:
                     try:
-                        record_user_activity(user_info, action="execute_dag", details=f"Ran DAG with {len(nodes)} nodes")
+                        record_user_activity(user_info, action="execute_dag", details=f"Ran DAG '{pipeline_id}' with {len(nodes)} nodes")
                     except Exception:
                         pass
-                async for event in engine.execute_graph_stream(nodes, edges):
+                async for event in engine.execute_graph_stream(nodes, edges, pipeline_id=pipeline_id):
                     await websocket.send_json(event)
 
             elif action == "run_node":
@@ -160,10 +177,10 @@ async def websocket_execute_endpoint(websocket: WebSocket):
                     continue
                 if user_info:
                     try:
-                        record_user_activity(user_info, action="execute_node", details=f"Ran node {target_node_id}")
+                        record_user_activity(user_info, action="execute_node", details=f"Ran node {target_node_id} in '{pipeline_id}'")
                     except Exception:
                         pass
-                async for event in engine.execute_graph_stream(nodes, edges, target_node_id=target_node_id):
+                async for event in engine.execute_graph_stream(nodes, edges, target_node_id=target_node_id, pipeline_id=pipeline_id):
                     await websocket.send_json(event)
 
             elif action == "compile":

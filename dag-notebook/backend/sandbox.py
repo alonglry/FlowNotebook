@@ -135,23 +135,62 @@ def serialize_variable_summary(val: Any) -> Dict[str, Any]:
         }
 
 
+from workspace import workspace_manager
+
+def preprocess_code(code: str, pipeline_id: str = "default_pipeline") -> str:
+    """Transforms Jupyter-style shell magic lines (e.g., !git clone, !pip install) into isolated Python subprocess calls."""
+    ws = workspace_manager.get_or_create_workspace(pipeline_id)
+    ws_dir = ws["workspace"]
+    pkg_dir = ws["packages"]
+
+    lines = []
+    for line in code.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("!"):
+            cmd = stripped[1:].strip()
+            indent = line[:len(line) - len(line.lstrip())]
+            lines.append(f"{indent}import subprocess, sys, os")
+            lines.append(f"{indent}_env = os.environ.copy()")
+            lines.append(f"{indent}_env['PYTHONUSERBASE'] = {pkg_dir!r}")
+            lines.append(f"{indent}_env['FLOWNB_WORKSPACE'] = {ws_dir!r}")
+            lines.append(f"{indent}_proc = subprocess.run({cmd!r}, shell=True, capture_output=True, text=True, cwd={ws_dir!r}, env=_env)")
+            lines.append(f"{indent}sys.stdout.write(_proc.stdout)")
+            lines.append(f"{indent}sys.stderr.write(_proc.stderr)")
+            lines.append(f"{indent}if _proc.returncode != 0:")
+            lines.append(f"{indent}    raise RuntimeError(f'Shell command failed with exit code {{_proc.returncode}}:\\n{{_proc.stderr.strip() or _proc.stdout.strip()}}')")
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def _run_node_code_worker(
     compiled_code: Any,
     exec_globals: Dict[str, Any],
     isolated_locals: Dict[str, Any],
     stdout_buf: io.StringIO,
-    stderr_buf: io.StringIO
+    stderr_buf: io.StringIO,
+    workspace_dir: Optional[str] = None
 ) -> None:
-    """Worker function executed inside a thread pool with stdout/stderr redirected."""
+    """Worker function executed inside a thread pool with stdout/stderr redirected and isolated cwd."""
     old_stdout = sys.stdout
     old_stderr = sys.stderr
+    old_cwd = os.getcwd()
     try:
+        if workspace_dir and os.path.exists(workspace_dir):
+            try:
+                os.chdir(workspace_dir)
+            except Exception:
+                pass
         sys.stdout = stdout_buf
         sys.stderr = stderr_buf
         exec(compiled_code, exec_globals, isolated_locals)
     finally:
         sys.stdout = old_stdout
         sys.stderr = old_stderr
+        try:
+            os.chdir(old_cwd)
+        except Exception:
+            pass
 
 
 def execute_node_isolated(
@@ -159,12 +198,15 @@ def execute_node_isolated(
     code: str,
     input_vars: Dict[str, Any],
     expected_outputs: Optional[List[str]] = None,
-    timeout_seconds: float = DEFAULT_NODE_TIMEOUT_SECONDS
+    timeout_seconds: float = DEFAULT_NODE_TIMEOUT_SECONDS,
+    pipeline_id: str = "default_pipeline"
 ) -> Dict[str, Any]:
     """
     Executes Python code in an isolated scope with defensive copying of inputs,
-    enforcing a strict execution timeout, resource limits, and environment sanitization.
+    isolated workspace filesystem, isolated package site, and strict timeout enforcement.
     """
+    # Activate pipeline-specific site packages & workspace directory
+    ws_dir = workspace_manager.activate_pipeline_site(pipeline_id)
     # Defensive copy of input variables to strictly avoid mutating upstream states
     isolated_locals: Dict[str, Any] = {}
     for var_name, var_val in input_vars.items():
@@ -196,10 +238,13 @@ def execute_node_isolated(
     error_msg = None
 
     try:
-        # Pre-compile node code
-        compiled = compile(code, f"<node_{node_id}>", "exec")
+        # Preprocess Jupyter bang commands (e.g., !git clone, !pip install) in pipeline workspace
+        processed_code = preprocess_code(code, pipeline_id=pipeline_id)
 
-        # Execute with strict timeout enforcement
+        # Pre-compile node code
+        compiled = compile(processed_code, f"<node_{node_id}>", "exec")
+
+        # Execute with strict timeout enforcement and isolated workspace directory
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(
                 _run_node_code_worker,
@@ -207,7 +252,8 @@ def execute_node_isolated(
                 exec_globals,
                 isolated_locals,
                 stdout_capture,
-                stderr_capture
+                stderr_capture,
+                ws_dir
             )
             try:
                 future.result(timeout=timeout_seconds)

@@ -16,6 +16,7 @@ export interface ProjectData {
   savedAt: number;
   nodes: CustomNode[];
   edges: Edge[];
+  filePath?: string;
 }
 
 export interface UserProfile {

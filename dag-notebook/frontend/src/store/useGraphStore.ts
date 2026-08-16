@@ -269,6 +269,9 @@ export interface PipelineItem {
   edgeCount: number;
   nodes: CustomNode[];
   edges: Edge[];
+  source?: 'preset' | 'local' | 'drive' | 'custom';
+  fileId?: string;
+  filePath?: string;
 }
 
 const DEFAULT_PIPELINES: PipelineItem[] = [
@@ -276,6 +279,7 @@ const DEFAULT_PIPELINES: PipelineItem[] = [
     id: 'pipe_quant_alpha',
     name: 'Quantitative Alpha Pipeline',
     category: 'quant',
+    source: 'preset',
     description: '4-stage systematic trading strategy with OHLCV data, regime filter, and dynamic ATR stops.',
     updatedAt: Date.now() - 3600000,
     nodeCount: 4,
@@ -287,6 +291,7 @@ const DEFAULT_PIPELINES: PipelineItem[] = [
     id: 'pipe_ml_classifier',
     name: 'Customer Churn Random Forest',
     category: 'ml',
+    source: 'preset',
     description: 'Feature engineering, train/test split, and random forest classifier with cross-validation.',
     updatedAt: Date.now() - 86400000,
     nodeCount: 3,
@@ -381,6 +386,7 @@ print(classification_report(y_test, y_pred))
     id: 'pipe_etl_cleaner',
     name: 'Automated Data Quality & Imputation',
     category: 'etl',
+    source: 'preset',
     description: 'Data sanitation pipeline handling missing records, outlier detection, and schema validation.',
     updatedAt: Date.now() - 172800000,
     nodeCount: 2,
@@ -458,6 +464,10 @@ interface GraphState {
   deletePipeline: (id: string) => void;
   duplicatePipeline: (id: string) => void;
 
+  theme: 'dark' | 'light';
+  setTheme: (theme: 'dark' | 'light') => void;
+  toggleTheme: () => void;
+
   nodes: CustomNode[];
   edges: Edge[];
   wsStatus: 'connecting' | 'connected' | 'disconnected';
@@ -474,7 +484,17 @@ interface GraphState {
   storageModalMode: 'save' | 'open';
   openStorageModal: (mode: 'save' | 'open') => void;
   closeStorageModal: () => void;
-  loadProjectData: (data: { name?: string; nodes: CustomNode[]; edges: Edge[] }) => void;
+  loadProjectData: (data: {
+    name?: string;
+    savedAt?: number;
+    nodes: CustomNode[];
+    edges: Edge[];
+    category?: 'quant' | 'ml' | 'etl' | 'custom';
+    description?: string;
+    source?: 'preset' | 'local' | 'drive' | 'custom';
+    fileId?: string;
+    filePath?: string;
+  }) => void;
 
   // Actions
   onNodesChange: OnNodesChange<CustomNode>;
@@ -503,11 +523,121 @@ interface GraphState {
   setIsExportModalOpen: (open: boolean) => void;
 }
 
+const STORAGE_KEY_PIPELINES = 'flownotebook_saved_pipelines';
+
+const getPersistedPipelines = (): PipelineItem[] => {
+  if (typeof window === 'undefined') return DEFAULT_PIPELINES;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PIPELINES);
+    if (!raw) return DEFAULT_PIPELINES;
+    const parsed: PipelineItem[] = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_PIPELINES;
+
+    // Merge with DEFAULT_PIPELINES to ensure built-in presets exist if not removed
+    const combined = [...parsed];
+    for (const def of DEFAULT_PIPELINES) {
+      if (!combined.some((p) => p.id === def.id || p.name.toLowerCase() === def.name.toLowerCase())) {
+        combined.push(def);
+      }
+    }
+    return combined;
+  } catch (err) {
+    console.error('Failed to load saved pipelines from storage:', err);
+    return DEFAULT_PIPELINES;
+  }
+};
+
+const savePersistedPipelines = (pipelines: PipelineItem[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_PIPELINES, JSON.stringify(pipelines));
+  } catch (err) {
+    console.error('Failed to persist pipelines to storage:', err);
+  }
+};
+
+const syncCurrentGraphToPipeline = (
+  pipelines: PipelineItem[],
+  activeId: string | null,
+  nodes: CustomNode[],
+  edges: Edge[],
+  projectName?: string
+): PipelineItem[] => {
+  if (!activeId) return pipelines;
+  const index = pipelines.findIndex((p) => p.id === activeId);
+  if (index < 0) return pipelines;
+
+  const current = pipelines[index];
+  const updatedItem: PipelineItem = {
+    ...current,
+    name: projectName || current.name,
+    nodes,
+    edges,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+    updatedAt: Date.now(),
+  };
+
+  const nextPipelines = [...pipelines];
+  nextPipelines[index] = updatedItem;
+  savePersistedPipelines(nextPipelines);
+  return nextPipelines;
+};
+
+const getInitialTheme = (): 'dark' | 'light' => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('flownotebook_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+  }
+  return 'dark';
+};
+
+const applyThemeToDOM = (theme: 'dark' | 'light') => {
+  if (typeof document !== 'undefined') {
+    const root = document.documentElement;
+    root.classList.remove('dark', 'light');
+    root.classList.add(theme);
+    root.setAttribute('data-theme', theme);
+    root.style.colorScheme = theme;
+  }
+};
+
+// Telemetry helper functions
+const sendTelemetry = (endpoint: string, payload: any) => {
+  fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {
+    // Silent fail for non-blocking telemetry
+  });
+};
+
+const initialPipelines = getPersistedPipelines();
+const initialActive = initialPipelines[0] || DEFAULT_PIPELINES[0];
+
 export const useGraphStore = create<GraphState>((set, get) => ({
-  currentView: 'canvas',
+  theme: getInitialTheme(),
+  setTheme: (theme) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('flownotebook_theme', theme);
+    }
+    applyThemeToDOM(theme);
+    set({ theme });
+  },
+  toggleTheme: () => {
+    const nextTheme = get().theme === 'dark' ? 'light' : 'dark';
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('flownotebook_theme', nextTheme);
+    }
+    applyThemeToDOM(nextTheme);
+    set({ theme: nextTheme });
+  },
+
+  currentView: 'landing',
   setCurrentView: (view) => set({ currentView: view }),
-  pipelines: DEFAULT_PIPELINES,
-  activePipelineId: 'pipe_quant_alpha',
+  pipelines: initialPipelines,
+  activePipelineId: initialActive.id,
 
   createPipeline: (name, category = 'custom') => {
     const newId = `pipe_${Date.now()}`;
@@ -539,16 +669,31 @@ print("Pipeline initiated successfully.")
       nodeCount: 1,
       edgeCount: 0,
       nodes: [initialNode],
-      edges: []
+      edges: [],
+      source: 'custom'
     };
 
+    const nextPipelines = [newPipeline, ...get().pipelines];
+    savePersistedPipelines(nextPipelines);
+
     set({
-      pipelines: [newPipeline, ...get().pipelines],
+      pipelines: nextPipelines,
       activePipelineId: newId,
       projectName: newPipeline.name,
       nodes: [initialNode],
       edges: [],
       currentView: 'canvas'
+    });
+
+    // Send telemetry to backend
+    const currentUser = get().currentUser || {
+      id: 'usr_guest',
+      name: 'Guest User',
+      email: 'guest@flownotebook.dev'
+    };
+    sendTelemetry('/api/telemetry/pipeline', {
+      pipeline: newPipeline,
+      user: currentUser
     });
 
     return newId;
@@ -560,8 +705,8 @@ print("Pipeline initiated successfully.")
       set({
         activePipelineId: id,
         projectName: found.name,
-        nodes: found.nodes,
-        edges: found.edges,
+        nodes: found.nodes && found.nodes.length > 0 ? found.nodes : INITIAL_NODES,
+        edges: found.edges || [],
         currentView: 'canvas'
       });
     }
@@ -569,6 +714,7 @@ print("Pipeline initiated successfully.")
 
   deletePipeline: (id) => {
     const updated = get().pipelines.filter((p) => p.id !== id);
+    savePersistedPipelines(updated);
     set({ pipelines: updated });
   },
 
@@ -580,13 +726,26 @@ print("Pipeline initiated successfully.")
       ...target,
       id: newId,
       name: `${target.name} (Copy)`,
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      source: 'custom'
     };
-    set({ pipelines: [duplicate, ...get().pipelines] });
+    const nextPipelines = [duplicate, ...get().pipelines];
+    savePersistedPipelines(nextPipelines);
+    set({ pipelines: nextPipelines });
+
+    const currentUser = get().currentUser || {
+      id: 'usr_guest',
+      name: 'Guest User',
+      email: 'guest@flownotebook.dev'
+    };
+    sendTelemetry('/api/telemetry/pipeline', {
+      pipeline: duplicate,
+      user: currentUser
+    });
   },
 
-  nodes: INITIAL_NODES,
-  edges: INITIAL_EDGES,
+  nodes: initialActive.nodes && initialActive.nodes.length > 0 ? initialActive.nodes : INITIAL_NODES,
+  edges: initialActive.edges || INITIAL_EDGES,
   wsStatus: 'disconnected',
   isGraphRunning: false,
   ws: null,
@@ -600,11 +759,20 @@ print("Pipeline initiated successfully.")
   storageModalMode: 'save',
 
   setProjectName: (name) => {
-    set({ projectName: name });
+    const { pipelines, activePipelineId, nodes, edges } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nodes, edges, name);
+    set({ projectName: name, pipelines: nextPipelines });
   },
 
   setCurrentUser: (user) => {
     set({ currentUser: user });
+    if (user) {
+      sendTelemetry('/api/telemetry/user', {
+        user,
+        action: 'login',
+        details: `User signed in as ${user.name} (${user.email})`
+      });
+    }
   },
 
   openStorageModal: (mode) => {
@@ -616,11 +784,41 @@ print("Pipeline initiated successfully.")
   },
 
   loadProjectData: (data) => {
+    const existingIndex = get().pipelines.findIndex(
+      (p) => (data.fileId && p.fileId === data.fileId) || (data.name && p.name === data.name)
+    );
+    const newId = data.fileId ? `pipe_drive_${data.fileId}` : `pipe_${Date.now()}`;
+    const pipelineItem: PipelineItem = {
+      id: existingIndex >= 0 ? get().pipelines[existingIndex].id : newId,
+      name: data.name || 'Imported Pipeline',
+      category: data.category || 'custom',
+      description: data.description || `Loaded pipeline (${(data.nodes || []).length} nodes)`,
+      updatedAt: data.savedAt || Date.now(),
+      nodeCount: (data.nodes || []).length,
+      edgeCount: (data.edges || []).length,
+      nodes: data.nodes || [],
+      edges: data.edges || [],
+      source: data.source || (data.fileId ? 'drive' : 'local'),
+      fileId: data.fileId,
+      filePath: data.filePath,
+    };
+
+    let updatedPipelines = [...get().pipelines];
+    if (existingIndex >= 0) {
+      updatedPipelines[existingIndex] = pipelineItem;
+    } else {
+      updatedPipelines = [pipelineItem, ...updatedPipelines];
+    }
+    savePersistedPipelines(updatedPipelines);
+
     set({
+      pipelines: updatedPipelines,
+      activePipelineId: pipelineItem.id,
       projectName: data.name || get().projectName,
       nodes: data.nodes || [],
       edges: data.edges || [],
       activeTabByNode: {},
+      currentView: 'canvas'
     });
   },
 
@@ -629,20 +827,32 @@ print("Pipeline initiated successfully.")
   },
 
   deleteEdge: (edgeId) => {
+    const nextEdges = get().edges.filter((e) => e.id !== edgeId);
+    const { pipelines, activePipelineId, nodes, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nodes, nextEdges, projectName);
     set({
-      edges: get().edges.filter((e) => e.id !== edgeId),
+      edges: nextEdges,
+      pipelines: nextPipelines,
     });
   },
 
   onNodesChange: (changes) => {
+    const nextNodes = applyNodeChanges(changes, get().nodes);
+    const { pipelines, activePipelineId, edges, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, edges, projectName);
     set({
-      nodes: applyNodeChanges(changes, get().nodes),
+      nodes: nextNodes,
+      pipelines: nextPipelines,
     });
   },
 
   onEdgesChange: (changes) => {
+    const nextEdges = applyEdgeChanges(changes, get().edges);
+    const { pipelines, activePipelineId, nodes, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nodes, nextEdges, projectName);
     set({
-      edges: applyEdgeChanges(changes, get().edges),
+      edges: nextEdges,
+      pipelines: nextPipelines,
     });
   },
 
@@ -679,92 +889,120 @@ print("Pipeline initiated successfully.")
       animated: true,
     };
 
+    const nextEdges = addEdge(newEdge, edges);
+    const { pipelines, activePipelineId, nodes, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nodes, nextEdges, projectName);
     set({
-      edges: addEdge(newEdge, edges),
+      edges: nextEdges,
+      pipelines: nextPipelines,
     });
   },
 
   updateNodeCode: (id, code) => {
+    const nextNodes = get().nodes.map((node) =>
+      node.id === id ? { ...node, data: { ...node.data, code } } : node
+    );
+    const { pipelines, activePipelineId, edges, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, edges, projectName);
     set({
-      nodes: get().nodes.map((node) =>
-        node.id === id ? { ...node, data: { ...node.data, code } } : node
-      ),
+      nodes: nextNodes,
+      pipelines: nextPipelines,
     });
   },
 
   updateNodeTitle: (id, title) => {
+    const nextNodes = get().nodes.map((node) =>
+      node.id === id ? { ...node, data: { ...node.data, title } } : node
+    );
+    const { pipelines, activePipelineId, edges, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, edges, projectName);
     set({
-      nodes: get().nodes.map((node) =>
-        node.id === id ? { ...node, data: { ...node.data, title } } : node
-      ),
+      nodes: nextNodes,
+      pipelines: nextPipelines,
     });
   },
 
   addNodeInput: (id, inputName) => {
     if (!inputName.trim()) return;
     const clean = inputName.trim().replace(/\s+/g, '_');
+    const nextNodes = get().nodes.map((node) => {
+      if (node.id !== id) return node;
+      if (node.data.inputs.includes(clean)) return node;
+      return {
+        ...node,
+        data: { ...node.data, inputs: [...node.data.inputs, clean] },
+      };
+    });
+    const { pipelines, activePipelineId, edges, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, edges, projectName);
     set({
-      nodes: get().nodes.map((node) => {
-        if (node.id !== id) return node;
-        if (node.data.inputs.includes(clean)) return node;
-        return {
-          ...node,
-          data: { ...node.data, inputs: [...node.data.inputs, clean] },
-        };
-      }),
+      nodes: nextNodes,
+      pipelines: nextPipelines,
     });
   },
 
   removeNodeInput: (id, inputName) => {
+    const nextNodes = get().nodes.map((node) => {
+      if (node.id !== id) return node;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          inputs: node.data.inputs.filter((i) => i !== inputName),
+        },
+      };
+    });
+    const nextEdges = get().edges.filter(
+      (e) => !(e.target === id && e.targetHandle === inputName)
+    );
+    const { pipelines, activePipelineId, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, nextEdges, projectName);
     set({
-      nodes: get().nodes.map((node) => {
-        if (node.id !== id) return node;
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            inputs: node.data.inputs.filter((i) => i !== inputName),
-          },
-        };
-      }),
-      // Remove connected edges targeting this handle
-      edges: get().edges.filter(
-        (e) => !(e.target === id && e.targetHandle === inputName)
-      ),
+      nodes: nextNodes,
+      edges: nextEdges,
+      pipelines: nextPipelines,
     });
   },
 
   addNodeOutput: (id, outputName) => {
     if (!outputName.trim()) return;
     const clean = outputName.trim().replace(/\s+/g, '_');
+    const nextNodes = get().nodes.map((node) => {
+      if (node.id !== id) return node;
+      if (node.data.outputs.includes(clean)) return node;
+      return {
+        ...node,
+        data: { ...node.data, outputs: [...node.data.outputs, clean] },
+      };
+    });
+    const { pipelines, activePipelineId, edges, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, edges, projectName);
     set({
-      nodes: get().nodes.map((node) => {
-        if (node.id !== id) return node;
-        if (node.data.outputs.includes(clean)) return node;
-        return {
-          ...node,
-          data: { ...node.data, outputs: [...node.data.outputs, clean] },
-        };
-      }),
+      nodes: nextNodes,
+      pipelines: nextPipelines,
     });
   },
 
   removeNodeOutput: (id, outputName) => {
+    const nextNodes = get().nodes.map((node) => {
+      if (node.id !== id) return node;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          outputs: node.data.outputs.filter((o) => o !== outputName),
+        },
+      };
+    });
+    const nextEdges = get().edges.filter(
+      (e) => !(e.source === id && e.sourceHandle === outputName)
+    );
+    const { pipelines, activePipelineId, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, nextEdges, projectName);
     set({
-      nodes: get().nodes.map((node) => {
-        if (node.id !== id) return node;
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            outputs: node.data.outputs.filter((o) => o !== outputName),
-          },
-        };
-      }),
-      // Remove connected edges sourcing from this handle
-      edges: get().edges.filter(
-        (e) => !(e.source === id && e.sourceHandle === outputName)
-      ),
+      nodes: nextNodes,
+      edges: nextEdges,
+      pipelines: nextPipelines,
     });
   },
 
@@ -792,13 +1030,24 @@ print("Pipeline initiated successfully.")
       },
     };
 
-    set({ nodes: [...nodes, newNode] });
+    const nextNodes = [...nodes, newNode];
+    const { pipelines, activePipelineId, edges, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, edges, projectName);
+    set({
+      nodes: nextNodes,
+      pipelines: nextPipelines,
+    });
   },
 
   deleteNode: (id) => {
+    const nextNodes = get().nodes.filter((n) => n.id !== id);
+    const nextEdges = get().edges.filter((e) => e.source !== id && e.target !== id);
+    const { pipelines, activePipelineId, projectName } = get();
+    const nextPipelines = syncCurrentGraphToPipeline(pipelines, activePipelineId, nextNodes, nextEdges, projectName);
     set({
-      nodes: get().nodes.filter((n) => n.id !== id),
-      edges: get().edges.filter((e) => e.source !== id && e.target !== id),
+      nodes: nextNodes,
+      edges: nextEdges,
+      pipelines: nextPipelines,
     });
   },
 
@@ -834,45 +1083,50 @@ print("Pipeline initiated successfully.")
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Connect to backend port 8000 ONLY when running on local development (localhost / 127.0.0.1 on non-8000 port)
-    const isLocalDev =
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-      window.location.port !== '8000';
+    let wsUrl = (import.meta.env.VITE_BACKEND_WS_URL || '').trim();
+    if (wsUrl) {
+      if (wsUrl.startsWith('http://')) wsUrl = wsUrl.replace(/^http:\/\//, 'ws://');
+      else if (wsUrl.startsWith('https://')) wsUrl = wsUrl.replace(/^https:\/\//, 'wss://');
+      else if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
+        wsUrl = `${protocol}//${wsUrl}`;
+      }
+      if (!wsUrl.includes('/ws/execute')) {
+        wsUrl = `${wsUrl.replace(/\/+$/, '')}/ws/execute`;
+      }
+    } else {
+      const isLocalDev =
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+        window.location.port !== '8000';
+      const host = isLocalDev ? `${window.location.hostname}:8000` : window.location.host;
+      wsUrl = `${protocol}//${host}/ws/execute`;
+    }
 
-    const host = isLocalDev ? `${window.location.hostname}:8000` : window.location.host;
-    const wsUrl = (import.meta as any).env?.VITE_BACKEND_WS_URL || `${protocol}//${host}/ws/execute`;
-
-    console.log('[FlowNotebook] Initializing WebSocket connection to:', wsUrl);
     set({ wsStatus: 'connecting' });
 
     let ws: WebSocket;
     try {
       ws = new WebSocket(wsUrl);
     } catch (err) {
-      console.error('[FlowNotebook] WebSocket initialization error:', err);
+      console.error('[FlowNotebook] WebSocket creation error:', err);
       set({ wsStatus: 'disconnected', ws: null });
       return;
     }
 
     ws.onopen = () => {
-      console.log('[FlowNotebook] WebSocket connected successfully.');
       set({ wsStatus: 'connected', ws });
     };
 
-    ws.onclose = (event) => {
-      console.warn('[FlowNotebook] WebSocket closed:', event.code, event.reason);
+    ws.onclose = () => {
       set({ wsStatus: 'disconnected', ws: null, isGraphRunning: false });
-      // Auto-reconnect after 2 seconds
       setTimeout(() => {
-        const currentStatus = get().wsStatus;
-        if (currentStatus === 'disconnected') {
+        if (get().wsStatus === 'disconnected') {
           get().initWebSocket();
         }
-      }, 2000);
+      }, 2500);
     };
 
     ws.onerror = (err) => {
-      console.error('[FlowNotebook] WebSocket error:', err);
+      console.error('WebSocket connection error:', err);
       set({ wsStatus: 'disconnected', isGraphRunning: false });
     };
 
@@ -881,38 +1135,38 @@ print("Pipeline initiated successfully.")
         const payload = JSON.parse(event.data);
 
         if (payload.type === 'execution_start') {
-          set({ isGraphRunning: true });
+          // Execution sequence received
         } else if (payload.type === 'node_status') {
-          const { nodeId, status } = payload;
           set({
             nodes: get().nodes.map((n) =>
-              n.id === nodeId
+              n.id === payload.nodeId
                 ? {
                     ...n,
                     data: {
                       ...n.data,
-                      execution: { ...n.data.execution, status },
+                      execution: {
+                        ...n.data.execution,
+                        status: payload.status,
+                      },
                     },
                   }
                 : n
             ),
           });
         } else if (payload.type === 'node_result') {
-          const { nodeId, status, stdout, stderr, executionTimeMs, outputsSummary, error } = payload;
           set({
             nodes: get().nodes.map((n) =>
-              n.id === nodeId
+              n.id === payload.nodeId
                 ? {
                     ...n,
                     data: {
                       ...n.data,
                       execution: {
-                        status,
-                        stdout: stdout || '',
-                        stderr: stderr || '',
-                        executionTimeMs,
-                        outputsSummary: outputsSummary || {},
-                        error,
+                        status: payload.status,
+                        stdout: payload.stdout || '',
+                        stderr: payload.stderr || '',
+                        executionTimeMs: payload.executionTimeMs,
+                        outputsSummary: payload.outputsSummary,
                         lastRunTimestamp: Date.now(),
                       },
                     },
@@ -937,7 +1191,7 @@ print("Pipeline initiated successfully.")
   },
 
   runGraph: () => {
-    const { ws, wsStatus, nodes, edges, currentUser } = get();
+    const { ws, wsStatus, nodes, edges, currentUser, activePipelineId } = get();
     if (!ws || wsStatus !== 'connected') {
       alert('WebSocket backend is not connected. Please ensure backend server is running.');
       return;
@@ -945,6 +1199,7 @@ print("Pipeline initiated successfully.")
 
     const payload = {
       action: 'run_graph',
+      pipelineId: activePipelineId || 'default_pipeline',
       user: currentUser,
       graph: {
         nodes: nodes.map((n) => ({
@@ -982,7 +1237,7 @@ print("Pipeline initiated successfully.")
   },
 
   runNode: (nodeId: string) => {
-    const { ws, wsStatus, nodes, edges, currentUser } = get();
+    const { ws, wsStatus, nodes, edges, currentUser, activePipelineId } = get();
     if (!ws || wsStatus !== 'connected') {
       alert('WebSocket backend is not connected.');
       return;
@@ -991,6 +1246,7 @@ print("Pipeline initiated successfully.")
     const payload = {
       action: 'run_node',
       nodeId,
+      pipelineId: activePipelineId || 'default_pipeline',
       user: currentUser,
       graph: {
         nodes: nodes.map((n) => ({

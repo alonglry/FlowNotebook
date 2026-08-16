@@ -1,0 +1,40 @@
+{
+  "hosting": [
+    {
+      "site": "flownotebook",
+      "public": "dag-notebook/frontend/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "run": {
+            "serviceId": "flownotebook",
+            "region": "us-central1"
+          }
+        }
+      ]
+    },
+    {
+      "site": "flownotebook-platform",
+      "public": "dag-notebook/frontend/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "run": {
+            "serviceId": "flownotebook",
+            "region": "us-central1"
+          }
+        }
+      ]
+    }
+  ]
+}
