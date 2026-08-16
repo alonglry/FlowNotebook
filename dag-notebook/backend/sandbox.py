@@ -135,10 +135,32 @@ def serialize_variable_summary(val: Any) -> Dict[str, Any]:
         }
 
 
+import re
 from workspace import workspace_manager
 
+def _strip_inline_comment(line: str) -> str:
+    """Strips inline comments (# ...) that appear outside of quotes or braces."""
+    in_quote = None
+    brace_depth = 0
+    for i, ch in enumerate(line):
+        if ch in ('"', "'"):
+            if in_quote == ch:
+                in_quote = None
+            elif in_quote is None:
+                in_quote = ch
+        elif ch == '{' and in_quote is None:
+            brace_depth += 1
+        elif ch == '}' and in_quote is None:
+            brace_depth = max(0, brace_depth - 1)
+        elif ch == '#' and in_quote is None and brace_depth == 0:
+            return line[:i].strip()
+    return line.strip()
+
 def preprocess_code(code: str, pipeline_id: str = "default_pipeline") -> str:
-    """Transforms Jupyter-style shell magic lines (e.g., !git clone, !pip install) into isolated Python subprocess calls."""
+    """
+    Transforms Jupyter-style shell magic lines (e.g. !git clone, !pip install)
+    and IPython magic commands (e.g. %cd, %pwd, %env, %pip) into isolated Python code.
+    """
     ws = workspace_manager.get_or_create_workspace(pipeline_id)
     ws_dir = ws["workspace"]
     pkg_dir = ws["packages"]
@@ -146,21 +168,94 @@ def preprocess_code(code: str, pipeline_id: str = "default_pipeline") -> str:
     lines = []
     for line in code.splitlines():
         stripped = line.strip()
+        indent = line[:len(line) - len(line.lstrip())]
+
+        # Handle %cd magic
+        if stripped.startswith("%cd"):
+            clean_cmd = _strip_inline_comment(stripped)
+            target = clean_cmd[3:].strip()
+            # Convert $VAR to {VAR} for interpolation
+            target_converted = re.sub(r'\$([a-zA-Z_][a-zA-Z0-9_]*)', r'{\1}', target)
+            
+            lines.append(f"{indent}import os")
+            if not target_converted:
+                lines.append(f"{indent}os.chdir(os.path.expanduser('~'))")
+            elif "{" in target_converted:
+                if (target_converted.startswith('"') and target_converted.endswith('"')) or \
+                   (target_converted.startswith("'") and target_converted.endswith("'")):
+                    target_converted = target_converted[1:-1]
+                lines.append(f"{indent}os.chdir(os.path.expanduser(f{target_converted!r}))")
+            else:
+                if (target.startswith('"') and target.endswith('"')) or \
+                   (target.startswith("'") and target.endswith("'")):
+                    target = target[1:-1]
+                lines.append(f"{indent}os.chdir(os.path.expanduser({target!r}))")
+            lines.append(f"{indent}print(os.getcwd())")
+            continue
+
+        # Handle %pwd magic
+        if stripped.startswith("%pwd"):
+            lines.append(f"{indent}import os")
+            lines.append(f"{indent}print(os.getcwd())")
+            continue
+
+        # Handle %pip or %conda -> translate to !pip / !conda
+        if stripped.startswith("%pip ") or stripped == "%pip":
+            stripped = "!" + stripped[1:]
+        elif stripped.startswith("%conda ") or stripped == "%conda":
+            stripped = "!" + stripped[1:]
+        elif stripped.startswith(("%ls", "%mkdir", "%rm", "%rmdir", "%cp", "%mv", "%cat")):
+            stripped = "!" + stripped[1:]
+
+        # Handle %env or %set_env
+        if stripped.startswith(("%env", "%set_env")):
+            clean_env = _strip_inline_comment(stripped)
+            parts = clean_env.split(None, 1)
+            lines.append(f"{indent}import os")
+            if len(parts) == 1:
+                lines.append(f"{indent}import pprint; pprint.pprint(dict(os.environ))")
+            elif "=" in parts[1]:
+                k, v = parts[1].split("=", 1)
+                lines.append(f"{indent}os.environ[{k.strip()!r}] = {v.strip()!r}")
+            else:
+                lines.append(f"{indent}print(os.environ.get({parts[1].strip()!r}, ''))")
+            continue
+
+        # Handle comments for non-executable IPython magics
+        if stripped.startswith(("%matplotlib", "%load_ext", "%reload_ext", "%autoreload", "%config", "%autocall", "%precision", "%colors", "%quickref", "%who", "%whos")):
+            lines.append(f"{indent}# {stripped}")
+            continue
+
+        # Handle Jupyter shell ! commands
         if stripped.startswith("!"):
-            cmd = stripped[1:].strip()
-            indent = line[:len(line) - len(line.lstrip())]
+            clean_cmd = _strip_inline_comment(stripped)
+            cmd = clean_cmd[1:].strip()
+            # Convert $VAR to {VAR} for interpolation if present
+            cmd_interpolated = re.sub(r'\$([a-zA-Z_][a-zA-Z0-9_]*)', r'{\1}', cmd)
+            
             lines.append(f"{indent}import subprocess, sys, os")
             lines.append(f"{indent}_env = os.environ.copy()")
             lines.append(f"{indent}_env['PYTHONUSERBASE'] = {pkg_dir!r}")
             lines.append(f"{indent}_env['FLOWNB_WORKSPACE'] = {ws_dir!r}")
-            lines.append(f"{indent}_proc = subprocess.run({cmd!r}, shell=True, capture_output=True, text=True, cwd={ws_dir!r}, env=_env)")
+            if "{" in cmd_interpolated:
+                lines.append(f"{indent}_cmd_str = f{cmd_interpolated!r}")
+            else:
+                lines.append(f"{indent}_cmd_str = {cmd!r}")
+            lines.append(f"{indent}_proc = subprocess.run(_cmd_str, shell=True, capture_output=True, text=True, cwd=os.getcwd(), env=_env)")
             lines.append(f"{indent}sys.stdout.write(_proc.stdout)")
             lines.append(f"{indent}sys.stderr.write(_proc.stderr)")
             lines.append(f"{indent}if _proc.returncode != 0:")
             lines.append(f"{indent}    raise RuntimeError(f'Shell command failed with exit code {{_proc.returncode}}:\\n{{_proc.stderr.strip() or _proc.stdout.strip()}}')")
-        else:
-            lines.append(line)
+            continue
+
+        # Any leftover % magic (e.g. unknown % command) - comment it out safely rather than crashing
+        if stripped.startswith("%") and not stripped.startswith("%%"):
+            lines.append(f"{indent}# Unsupported magic: {stripped}")
+            continue
+
+        lines.append(line)
     return "\n".join(lines)
+
 
 
 def _run_node_code_worker(

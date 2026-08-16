@@ -65,3 +65,20 @@ def test_bang_command_preprocessing():
     assert "FLOWNB_WORKSPACE" in processed
     assert "PYTHONUSERBASE" in processed
     assert "subprocess.run" in processed
+
+def test_cd_and_magic_preprocessing():
+    code = """
+repo_name = "my_awesome_repo"
+%cd {repo_name}
+%pwd
+%pip install requests
+%matplotlib inline
+"""
+    processed = preprocess_code(code, pipeline_id="pipe_test")
+    assert "os.chdir" in processed
+    assert "print(os.getcwd())" in processed
+    assert "subprocess.run" in processed
+    # Make sure compiled code is valid Python syntax!
+    compiled = compile(processed, "<test_node>", "exec")
+    assert compiled is not None
+

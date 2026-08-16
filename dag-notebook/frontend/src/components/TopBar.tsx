@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Play,
   Plus,
@@ -8,7 +8,9 @@ import {
   Save,
   Cloud,
   ChevronLeft,
-  Shield
+  Shield,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { useGraphStore } from '../store/useGraphStore';
 import { ThemeToggle } from './ThemeToggle';
@@ -22,9 +24,51 @@ export const TopBar: React.FC = () => {
   const addNewNode = useGraphStore((state) => state.addNewNode);
   const exportStandaloneScript = useGraphStore((state) => state.exportStandaloneScript);
   const openStorageModal = useGraphStore((state) => state.openStorageModal);
+  const saveActivePipelineDirectly = useGraphStore((state) => state.saveActivePipelineDirectly);
   const currentUser = useGraphStore((state) => state.currentUser);
   const projectName = useGraphStore((state) => state.projectName);
   const setCurrentView = useGraphStore((state) => state.setCurrentView);
+
+  const [saveStatus, setSaveStatus] = useState<{
+    type: 'saving' | 'success' | 'error';
+    message: string;
+  } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+
+  const handleSave = useCallback(async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveStatus({ type: 'saving', message: 'Saving pipeline to workspace...' });
+    try {
+      const res = await saveActivePipelineDirectly();
+      if (res.success) {
+        setSaveStatus({ type: 'success', message: res.message || 'Saved successfully!' });
+        const now = new Date();
+        setLastSavedTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      } else {
+        setSaveStatus({ type: 'error', message: res.message || 'Save failed.' });
+      }
+    } catch (err: any) {
+      setSaveStatus({ type: 'error', message: err?.message || 'Save failed.' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => {
+        setSaveStatus((prev) => (prev?.type === 'saving' ? prev : null));
+      }, 3500);
+    }
+  }, [isSaving, saveActivePipelineDirectly]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave]);
 
   const isDark = theme === 'dark';
 
@@ -80,7 +124,7 @@ export const TopBar: React.FC = () => {
               isDark ? 'text-emerald-400/90' : 'text-emerald-600'
             }`}>
               <span>●</span>
-              <span>Saved to disk</span>
+              <span>{lastSavedTime ? `Saved at ${lastSavedTime}` : 'Saved to disk'}</span>
             </p>
           </div>
         </div>
@@ -126,18 +170,23 @@ export const TopBar: React.FC = () => {
 
         <div className={`h-5 w-px mx-0.5 ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
 
-        {/* Save Pipeline Button */}
+        {/* Direct Save Pipeline Button */}
         <button
-          onClick={() => openStorageModal('save')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border active:scale-95 cursor-pointer ${
+          onClick={handleSave}
+          disabled={isSaving}
+          className={`flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
             isDark
               ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
               : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
           }`}
-          title="Save to Local (.flownb) or Google Drive"
+          title="Save pipeline directly to workspace (Ctrl+S / Cmd+S)"
         >
-          <Save className="w-3.5 h-3.5 text-sky-500" />
-          <span>Save</span>
+          {isSaving ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-500" />
+          ) : (
+            <Save className="w-3.5 h-3.5 text-sky-500" />
+          )}
+          <span>{isSaving ? 'Saving...' : 'Save'}</span>
         </button>
 
         {/* Export Standalone Script */}
@@ -195,6 +244,24 @@ export const TopBar: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* Floating Save Status Toast Notification */}
+      {saveStatus && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300">
+          <div className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-medium border backdrop-blur-md transition-all ${
+            saveStatus.type === 'saving'
+              ? (isDark ? 'bg-slate-900/95 text-sky-400 border-sky-500/30 shadow-sky-950/40' : 'bg-white/95 text-sky-700 border-sky-200 shadow-sky-100')
+              : saveStatus.type === 'success'
+              ? (isDark ? 'bg-emerald-950/95 text-emerald-300 border-emerald-500/40 shadow-emerald-950/50' : 'bg-emerald-50/95 text-emerald-800 border-emerald-200 shadow-emerald-100')
+              : (isDark ? 'bg-rose-950/95 text-rose-300 border-rose-500/40 shadow-rose-950/50' : 'bg-rose-50/95 text-rose-800 border-rose-200 shadow-rose-100')
+          }`}>
+            {saveStatus.type === 'saving' && <Loader2 className="w-4 h-4 animate-spin text-sky-400" />}
+            {saveStatus.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+            {saveStatus.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-400" />}
+            <span className="font-semibold">{saveStatus.message}</span>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

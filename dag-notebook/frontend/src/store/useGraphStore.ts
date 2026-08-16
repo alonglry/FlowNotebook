@@ -487,6 +487,7 @@ interface GraphState {
   storageModalMode: 'save' | 'open';
   openStorageModal: (mode: 'save' | 'open') => void;
   closeStorageModal: () => void;
+  saveActivePipelineDirectly: () => Promise<{ success: boolean; message: string }>;
   loadProjectData: (data: {
     name?: string;
     savedAt?: number;
@@ -949,6 +950,67 @@ print("Pipeline initiated successfully.")
 
   closeStorageModal: () => {
     set({ isStorageModalOpen: false });
+  },
+
+  saveActivePipelineDirectly: async () => {
+    const { pipelines, activePipelineId, nodes, edges, projectName, currentUser } = get();
+    const currentId: string = activePipelineId || `pipe_${Date.now()}`;
+    const targetPipeline: PipelineItem = pipelines.find((p) => p.id === currentId) || {
+      id: currentId,
+      name: projectName || 'Untitled Pipeline',
+      category: 'custom',
+      source: 'custom',
+      description: '',
+      updatedAt: Date.now(),
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      nodes,
+      edges,
+    };
+
+    const nameToUse = projectName || targetPipeline.name || 'Untitled Pipeline';
+
+    const updatedItem: PipelineItem = {
+      ...targetPipeline,
+      id: currentId,
+      name: nameToUse,
+      nodes,
+      edges,
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      updatedAt: Date.now(),
+    };
+
+    const nextPipelines = pipelines.some((p) => p.id === currentId)
+      ? pipelines.map((p) => (p.id === currentId ? updatedItem : p))
+      : [updatedItem, ...pipelines];
+
+    savePersistedPipelines(nextPipelines, currentUser);
+    set({
+      pipelines: nextPipelines,
+      activePipelineId: currentId,
+      projectName: nameToUse,
+    });
+
+    try {
+      const res = await savePipelineDirectly(updatedItem);
+      if (res && res.success !== false) {
+        return {
+          success: true,
+          message: `Saved successfully into .flownotebook_workspaces/${updatedItem.id}/`,
+        };
+      } else {
+        return {
+          success: false,
+          message: res?.detail || res?.message || 'Failed to save pipeline to disk.',
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || 'Network error saving pipeline to disk.',
+      };
+    }
   },
 
   loadProjectData: (data) => {
