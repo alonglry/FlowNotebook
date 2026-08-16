@@ -128,6 +128,61 @@ def export_py_file(req: CompileRequest):
 
 
 from workspace import workspace_manager
+import os
+from pathlib import Path
+
+
+@app.get("/api/workspace/info")
+def get_workspace_info():
+    """Returns the host machine workspace and notebook directories."""
+    cwd = os.getcwd()
+    # If running inside a subfolder (e.g. dag-notebook/backend), resolve repo root / notebooks
+    possible_notebook_dirs = [
+        os.environ.get("FLOWNB_NOTEBOOKS_DIR"),
+        str(Path(cwd).resolve()),
+        os.path.expanduser("~/Desktop/stock/notebooks"),
+        str(Path.home() / "Desktop" / "stock" / "notebooks"),
+    ]
+    notebook_dir = next((d for d in possible_notebook_dirs if d and os.path.exists(d)), str(Path(cwd).resolve()))
+    return {
+        "cwd": cwd,
+        "notebooksDir": notebook_dir,
+        "homeDir": str(Path.home())
+    }
+
+
+@app.post("/api/local/save")
+def save_local_file(req: Dict[str, Any]):
+    """Directly saves pipeline .flownb file to local filesystem."""
+    file_path = req.get("path")
+    project_data = req.get("data")
+    if not file_path or not project_data:
+        raise HTTPException(status_code=400, detail="Missing 'path' or 'data'.")
+    
+    resolved_path = Path(os.path.expanduser(file_path)).resolve()
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(resolved_path, "w", encoding="utf-8") as f:
+        json.dump(project_data, f, indent=2)
+        
+    return {"success": True, "filePath": str(resolved_path), "message": f"Saved to {resolved_path}"}
+
+
+@app.post("/api/local/load")
+def load_local_file(req: Dict[str, Any]):
+    """Directly loads pipeline .flownb file from local filesystem."""
+    file_path = req.get("path")
+    if not file_path:
+        raise HTTPException(status_code=400, detail="Missing 'path'.")
+        
+    resolved_path = Path(os.path.expanduser(file_path)).resolve()
+    if not resolved_path.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {resolved_path}")
+        
+    with open(resolved_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        
+    return {"success": True, "filePath": str(resolved_path), "data": data}
 
 
 @app.get("/api/workspaces/{pipeline_id}/files")
@@ -141,6 +196,7 @@ def reset_workspace(pipeline_id: str):
     """Resets/cleans the isolated workspace and packages of the given pipeline."""
     success = workspace_manager.clean_workspace(pipeline_id)
     return {"pipelineId": pipeline_id, "success": success}
+
 
 
 @app.websocket("/ws/execute")

@@ -396,28 +396,72 @@ export class GoogleDriveProvider implements StorageProvider {
 
   async listProjects(): Promise<ProjectMetadata[]> {
     if (!this.isAuthenticated || !this.hasDriveAccess || !this.accessToken) {
+      if (!this.isAvailable && this.user) {
+        return [
+          {
+            id: 'demo_drive_1',
+            name: 'Quantitative Alpha Pipeline',
+            updatedAt: Date.now() - 3600000,
+            nodeCount: 4,
+            edgeCount: 3,
+          },
+          {
+            id: 'demo_drive_2',
+            name: 'Customer Churn Random Forest',
+            updatedAt: Date.now() - 86400000,
+            nodeCount: 3,
+            edgeCount: 2,
+          }
+        ];
+      }
       return [];
     }
 
     try {
-      const folderId = await this.getOrCreateFolder();
-      const query = folderId
-        ? encodeURIComponent(`'${folderId}' in parents and trashed=false`)
-        : encodeURIComponent(`name contains '.flownb' and trashed=false`);
-
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc`, {
+      // 1. Broad query to find any FlowNotebook pipeline or JSON file accessible in Google Drive
+      const query = encodeURIComponent(`trashed=false and mimeType != 'application/vnd.google-apps.folder'`);
+      let res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size,mimeType)&orderBy=modifiedTime desc`, {
         headers: { Authorization: `Bearer ${this.accessToken}` },
       });
-      const data = await res.json();
 
-      return (data.files || []).map((f: any) => ({
-        id: f.id,
-        name: f.name.replace('.flownb', ''),
-        updatedAt: new Date(f.modifiedTime).getTime(),
-        nodeCount: 0,
-        edgeCount: 0,
-      }));
+      if (res.status === 401) {
+        // Token might be expired, request refresh
+        const refreshed = await this.requestDriveAccess();
+        if (refreshed && this.accessToken) {
+          res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size,mimeType)&orderBy=modifiedTime desc`, {
+            headers: { Authorization: `Bearer ${this.accessToken}` },
+          });
+        }
+      }
+
+      const data = await res.json();
+      const files: any[] = data.files || [];
+
+      // Filter to relevant files (.flownb, .json, or files created by app)
+      const validFiles = files.filter((f: any) => {
+        if (!f.name) return false;
+        return f.name.endsWith('.flownb') || f.name.endsWith('.json') || f.mimeType === 'application/json' || f.mimeType === 'text/plain';
+      });
+
+      const itemsToMap = validFiles.length > 0 ? validFiles : files;
+
+      return itemsToMap.map((f: any) => {
+        let cleanName = f.name || 'Untitled Pipeline';
+        if (cleanName.endsWith('.flownb')) {
+          cleanName = cleanName.slice(0, -'.flownb'.length);
+        } else if (cleanName.endsWith('.json')) {
+          cleanName = cleanName.slice(0, -'.json'.length);
+        }
+        return {
+          id: f.id,
+          name: cleanName || f.name || 'Untitled Pipeline',
+          updatedAt: f.modifiedTime ? new Date(f.modifiedTime).getTime() : Date.now(),
+          nodeCount: 0,
+          edgeCount: 0,
+        };
+      });
     } catch (e) {
+      console.error('[GoogleDrive] listProjects error:', e);
       return [];
     }
   }
