@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useGraphStore } from '../store/useGraphStore';
 import { storageManager, type ProjectMetadata } from '../services/storage';
+import { isStandalone } from '../services/appConfig';
 
 interface StorageModalProps {
   isOpen: boolean;
@@ -97,6 +98,11 @@ export const StorageModal: React.FC<StorageModalProps> = ({
   };
 
   const handleSave = async () => {
+    if (selectedDestination === 'google_drive' && !currentUser) {
+      setStatusMessage({ type: 'error', text: 'Sign in with Google is required to save to Google Drive.' });
+      return;
+    }
+
     if (!nameInput.trim()) {
       setStatusMessage({ type: 'error', text: 'Please enter a pipeline name.' });
       return;
@@ -140,6 +146,10 @@ export const StorageModal: React.FC<StorageModalProps> = ({
   };
 
   const handleOpenDrive = async (fileId: string) => {
+    if (!currentUser) {
+      setStatusMessage({ type: 'error', text: 'Sign in with Google is required to open cloud pipelines.' });
+      return;
+    }
     setIsProcessing(true);
     const data = await storageManager.googleDriveProvider.loadProject(fileId);
     if (data) {
@@ -155,6 +165,10 @@ export const StorageModal: React.FC<StorageModalProps> = ({
   };
 
   const handleOpenFilePicker = async () => {
+    if (!isStandalone && !currentUser) {
+      setStatusMessage({ type: 'error', text: 'Sign in with Google is required to open and import pipelines.' });
+      return;
+    }
     const data = await storageManager.fileExportProvider.loadProject();
     if (data) {
       loadProjectData({
@@ -285,76 +299,78 @@ export const StorageModal: React.FC<StorageModalProps> = ({
                 />
               </div>
 
-              {/* Destination Selector */}
-              <div>
-                <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
-                  isDark ? 'text-slate-300' : 'text-slate-700'
-                }`}>
-                  Choose Destination
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Save to Local Option */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDestination('file')}
-                    className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                      selectedDestination === 'file'
-                        ? isDark
-                          ? 'bg-sky-950/60 border-sky-500 ring-1 ring-sky-500'
-                          : 'bg-sky-50 border-sky-500 ring-1 ring-sky-500'
-                        : isDark
-                        ? 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
-                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full mb-2">
-                      <HardDrive className="w-5 h-5 text-emerald-500" />
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                        isDark ? 'bg-emerald-950 text-emerald-300' : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        Direct Disk Save
-                      </span>
-                    </div>
-                    <div>
-                      <div className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Save to Local (.flownb)</div>
-                      <div className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                        Choose path & save file to your local computer
+              {/* Destination Selector (Hosted Platform only) */}
+              {!isStandalone && (
+                <div>
+                  <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                    isDark ? 'text-slate-300' : 'text-slate-700'
+                  }`}>
+                    Choose Destination
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Save to Local Option */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDestination('file')}
+                      className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        selectedDestination === 'file'
+                          ? isDark
+                            ? 'bg-sky-950/60 border-sky-500 ring-1 ring-sky-500'
+                            : 'bg-sky-50 border-sky-500 ring-1 ring-sky-500'
+                          : isDark
+                          ? 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                          : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-2">
+                        <HardDrive className="w-5 h-5 text-emerald-500" />
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          isDark ? 'bg-emerald-950 text-emerald-300' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          Direct Disk Save
+                        </span>
                       </div>
-                    </div>
-                  </button>
+                      <div>
+                        <div className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Save to Local (.flownb)</div>
+                        <div className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Choose path & save file to your local computer
+                        </div>
+                      </div>
+                    </button>
 
-                  {/* Google Drive Option */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDestination('google_drive')}
-                    className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                      selectedDestination === 'google_drive'
-                        ? isDark
-                          ? 'bg-sky-950/60 border-sky-500 ring-1 ring-sky-500'
-                          : 'bg-sky-50 border-sky-500 ring-1 ring-sky-500'
-                        : isDark
-                        ? 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
-                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full mb-2">
-                      <Cloud className="w-5 h-5 text-sky-500" />
-                      {hasDriveAccess && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-400/50" />
-                      )}
-                    </div>
-                    <div>
-                      <div className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Google Drive</div>
-                      <div className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {hasDriveAccess ? `Folder: /FlowNotebook/` : 'Save to Google Drive'}
+                    {/* Google Drive Option */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDestination('google_drive')}
+                      className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        selectedDestination === 'google_drive'
+                          ? isDark
+                            ? 'bg-sky-950/60 border-sky-500 ring-1 ring-sky-500'
+                            : 'bg-sky-50 border-sky-500 ring-1 ring-sky-500'
+                          : isDark
+                          ? 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                          : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-2">
+                        <Cloud className="w-5 h-5 text-sky-500" />
+                        {hasDriveAccess && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-400/50" />
+                        )}
                       </div>
-                    </div>
-                  </button>
+                      <div>
+                        <div className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Google Drive</div>
+                        <div className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {hasDriveAccess ? `Folder: /FlowNotebook/` : 'Save to Google Drive'}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Google Drive Status Banner */}
-              {selectedDestination === 'google_drive' && (
+              {!isStandalone && selectedDestination === 'google_drive' && (
                 <div className={`p-3.5 border rounded-xl flex items-center justify-between text-xs ${
                   isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
                 }`}>
@@ -420,8 +436,9 @@ export const StorageModal: React.FC<StorageModalProps> = ({
                 <span>Open Local File (.flownb) from Computer</span>
               </button>
 
-              {/* Google Drive Files List */}
-              <div className="space-y-2">
+              {/* Google Drive Files List (Hosted Platform only) */}
+              {!isStandalone && (
+                <div className="space-y-2">
                 <div className={`flex items-center justify-between text-xs font-semibold ${
                   isDark ? 'text-slate-400' : 'text-slate-600'
                 }`}>
@@ -505,6 +522,7 @@ export const StorageModal: React.FC<StorageModalProps> = ({
                   </div>
                 )}
               </div>
+            )}
             </div>
           )}
         </div>

@@ -66,4 +66,8 @@ yarn-error.log*
 .firebase/
 capital_management/
 
-
+# FlowNotebook Local Storage & Pipelines
+.flownotebook_workspaces/
+.flownotebook/
+*.flownpy
+*.flownb

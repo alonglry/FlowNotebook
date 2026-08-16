@@ -7,18 +7,20 @@ import os
 import sys
 import site
 import shutil
+import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-# Default base directory for workspaces
+# Fixed default base directory for workspaces in dag-notebook/backend/.flownotebook_workspaces
+BACKEND_DIR = Path(__file__).parent.resolve()
 DEFAULT_BASE_DIR = os.environ.get(
     "FLOWNB_WORKSPACES_DIR",
-    os.path.expanduser("~/.flownotebook/workspaces")
+    str(BACKEND_DIR / ".flownotebook_workspaces")
 )
 
 class WorkspaceManager:
     """
-    Manages isolated filesystem directories and environment contexts for pipelines.
+    Manages isolated filesystem directories, environment contexts, and disk-persisted pipelines.
     """
 
     def __init__(self, base_dir: str = DEFAULT_BASE_DIR):
@@ -26,8 +28,7 @@ class WorkspaceManager:
         try:
             self.base_dir.mkdir(parents=True, exist_ok=True)
         except Exception:
-            # Fallback to local directory if home is restricted
-            self.base_dir = Path("./.flownotebook_workspaces").resolve()
+            self.base_dir = (BACKEND_DIR / ".flownotebook_workspaces").resolve()
             self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def _sanitize_pipeline_id(self, pipeline_id: str) -> str:
@@ -41,6 +42,120 @@ class WorkspaceManager:
     def get_pipeline_dir(self, pipeline_id: str) -> Path:
         clean_id = self._sanitize_pipeline_id(pipeline_id)
         return self.base_dir / clean_id
+
+    def get_pipeline_file_path(self, pipeline_id: str) -> Path:
+        return self.get_pipeline_dir(pipeline_id) / "pipeline.flownpy"
+
+    def save_pipeline(self, pipeline_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Saves full graph structure, code, and metadata as pipeline.flownpy on disk."""
+        ws = self.get_or_create_workspace(pipeline_id)
+        pipe_file = self.get_pipeline_file_path(pipeline_id)
+        
+        # Ensure field consistency
+        import time
+        data["id"] = pipeline_id
+        data["name"] = data.get("name", "Untitled Pipeline")
+        data["category"] = data.get("category", "custom")
+        data["source"] = data.get("source", "custom")
+        data["description"] = data.get("description", "")
+        data["nodes"] = data.get("nodes", [])
+        data["edges"] = data.get("edges", [])
+        data["nodeCount"] = len(data["nodes"])
+        data["edgeCount"] = len(data["edges"])
+        if "updatedAt" not in data or not data["updatedAt"]:
+            data["updatedAt"] = int(time.time() * 1000)
+            
+        with open(pipe_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            
+        return {
+            "success": True,
+            "pipelineId": pipeline_id,
+            "filePath": str(pipe_file),
+            "data": data
+        }
+
+    def load_pipeline(self, pipeline_id: str) -> Optional[Dict[str, Any]]:
+        """Loads pipeline.flownpy from disk."""
+        pipe_file = self.get_pipeline_file_path(pipeline_id)
+        if not pipe_file.exists():
+            return None
+        try:
+            with open(pipe_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                data["id"] = pipeline_id
+                data["name"] = data.get("name", "Untitled Pipeline")
+                data["source"] = data.get("source", "custom")
+                data["category"] = data.get("category", "custom")
+                data["description"] = data.get("description", "")
+                data["nodes"] = data.get("nodes", [])
+                data["edges"] = data.get("edges", [])
+                data["nodeCount"] = data.get("nodeCount", len(data["nodes"]))
+                data["edgeCount"] = data.get("edgeCount", len(data["edges"]))
+                return data
+        except Exception as err:
+            print(f"[WorkspaceManager] Error reading {pipe_file}: {err}")
+            return None
+
+    def list_pipelines(self) -> List[Dict[str, Any]]:
+        """Scans .flownotebook_workspaces/ for all pipeline.flownpy files."""
+        pipelines = []
+        if not self.base_dir.exists():
+            return pipelines
+
+        import time
+        for item in self.base_dir.iterdir():
+            if item.is_dir():
+                pipe_file = item / "pipeline.flownpy"
+                if pipe_file.is_file():
+                    try:
+                        with open(pipe_file, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            if "id" not in data:
+                                data["id"] = item.name
+                            data["name"] = data.get("name", "Untitled Pipeline")
+                            data["source"] = data.get("source", "custom")
+                            data["category"] = data.get("category", "custom")
+                            data["description"] = data.get("description", "")
+                            data["nodes"] = data.get("nodes", [])
+                            data["edges"] = data.get("edges", [])
+                            data["nodeCount"] = data.get("nodeCount", len(data["nodes"]))
+                            data["edgeCount"] = data.get("edgeCount", len(data["edges"]))
+                            data["updatedAt"] = data.get("updatedAt", int(time.time() * 1000))
+                            pipelines.append(data)
+                    except Exception as err:
+                        print(f"[WorkspaceManager] Error loading {pipe_file}: {err}")
+
+        # Sort by updatedAt descending
+        pipelines.sort(key=lambda p: p.get("updatedAt", 0), reverse=True)
+        return pipelines
+
+    def delete_pipeline(self, pipeline_id: str) -> bool:
+        """Deletes pipeline directory and its pipeline.flownpy file."""
+        pipe_dir = self.get_pipeline_dir(pipeline_id)
+        if pipe_dir.exists():
+            try:
+                shutil.rmtree(pipe_dir)
+                return True
+            except Exception as err:
+                print(f"[WorkspaceManager] Failed to delete {pipe_dir}: {err}")
+                return False
+        return False
+
+    def duplicate_pipeline(self, source_id: str, new_id: str, new_name: str) -> Optional[Dict[str, Any]]:
+        """Duplicates an existing pipeline on disk."""
+        source_data = self.load_pipeline(source_id)
+        if not source_data:
+            return None
+
+        import time
+        dup_data = dict(source_data)
+        dup_data["id"] = new_id
+        dup_data["name"] = new_name
+        dup_data["updatedAt"] = int(time.time() * 1000)
+
+        res = self.save_pipeline(new_id, dup_data)
+        return res.get("data")
 
     def get_or_create_workspace(self, pipeline_id: str) -> Dict[str, str]:
         """

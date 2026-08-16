@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useGraphStore } from '../store/useGraphStore';
 import { ThemeToggle } from './ThemeToggle';
+import { isStandalone } from '../services/appConfig';
 
 export const TopBar: React.FC = () => {
   const theme = useGraphStore((state) => state.theme);
@@ -48,9 +49,8 @@ export const TopBar: React.FC = () => {
           <span>Dashboard</span>
         </button>
 
-        {['alonglry@gmail.com', 'flownotebook.support@gmail.com'].includes(currentUser?.email?.toLowerCase() || '') && (
+        {!isStandalone && ['alonglry@gmail.com', 'flownotebook.support@gmail.com'].includes(currentUser?.email?.toLowerCase() || '') && (
           <button
-
             onClick={() => setCurrentView('admin')}
             className={`flex items-center space-x-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer shadow-sm ${
               isDark
@@ -76,10 +76,11 @@ export const TopBar: React.FC = () => {
                 {projectName || 'FlowNotebook'}
               </h1>
             </div>
-            <p className={`text-[10px] truncate max-w-[180px] sm:max-w-xs font-mono ${
-              isDark ? 'text-slate-500' : 'text-slate-400'
+            <p className={`text-[10px] truncate max-w-[180px] sm:max-w-xs font-mono flex items-center space-x-1 ${
+              isDark ? 'text-emerald-400/90' : 'text-emerald-600'
             }`}>
-              Auto-saved
+              <span>●</span>
+              <span>Saved to disk</span>
             </p>
           </div>
         </div>

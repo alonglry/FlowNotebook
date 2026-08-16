@@ -185,6 +185,52 @@ def load_local_file(req: Dict[str, Any]):
     return {"success": True, "filePath": str(resolved_path), "data": data}
 
 
+@app.get("/api/pipelines")
+def list_disk_pipelines():
+    """Scans and returns all pipelines persisted on disk."""
+    pipelines = workspace_manager.list_pipelines()
+    return {"pipelines": pipelines, "count": len(pipelines)}
+
+
+@app.get("/api/pipelines/{pipeline_id}")
+def get_disk_pipeline(pipeline_id: str):
+    """Loads a specific pipeline from disk."""
+    data = workspace_manager.load_pipeline(pipeline_id)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Pipeline '{pipeline_id}' not found on disk.")
+    return {"success": True, "pipeline": data}
+
+
+@app.post("/api/pipelines/save")
+def save_disk_pipeline(req: Dict[str, Any]):
+    """Saves/updates a pipeline graph structure, code, and metadata on disk."""
+    pipeline_id = req.get("id")
+    if not pipeline_id:
+        raise HTTPException(status_code=400, detail="Missing 'id' in pipeline data.")
+    res = workspace_manager.save_pipeline(pipeline_id, req)
+    return res
+
+
+@app.delete("/api/pipelines/{pipeline_id}")
+def delete_disk_pipeline(pipeline_id: str):
+    """Deletes a pipeline folder and its pipeline.flownpy from disk."""
+    success = workspace_manager.delete_pipeline(pipeline_id)
+    return {"success": success, "pipelineId": pipeline_id}
+
+
+@app.post("/api/pipelines/{pipeline_id}/duplicate")
+def duplicate_disk_pipeline(pipeline_id: str, req: Dict[str, Any]):
+    """Duplicates a pipeline on disk."""
+    new_id = req.get("newId")
+    new_name = req.get("newName", "Duplicated Pipeline")
+    if not new_id:
+        raise HTTPException(status_code=400, detail="Missing 'newId'.")
+    data = workspace_manager.duplicate_pipeline(pipeline_id, new_id, new_name)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Source pipeline '{pipeline_id}' not found.")
+    return {"success": True, "pipeline": data}
+
+
 @app.get("/api/workspaces/{pipeline_id}/files")
 def list_workspace_files(pipeline_id: str):
     """Returns files in the isolated workspace of the given pipeline."""
