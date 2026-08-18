@@ -4,8 +4,20 @@
 :root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   color-scheme: dark;
-  background-color: #0b0f19;
+}
+
+html.dark,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  background-color: #070b14;
   color: #f1f5f9;
+}
+
+html.light,
+:root[data-theme="light"] {
+  color-scheme: light;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
 body {
@@ -14,10 +26,20 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: #090d16;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Custom modern scrollbar for terminals and editors */
+html.dark body {
+  background-color: #070b14;
+  color: #f1f5f9;
+}
+
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Custom modern scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -27,18 +49,38 @@ body {
   background: rgba(15, 23, 42, 0.6);
 }
 
+html.light ::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.8);
+}
+
 ::-webkit-scrollbar-thumb {
   background: rgba(71, 85, 105, 0.8);
   border-radius: 3px;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(203, 213, 225, 0.9);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 1);
 }
 
-/* React Flow customizations for sleek dark theme */
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 1);
+}
+
+/* ========================================================================= */
+/* REACT FLOW THEMES (DARK & LIGHT)                                         */
+/* ========================================================================= */
+
 .react-flow__background {
   background-color: #080c14 !important;
+}
+
+html.light .react-flow__background,
+[data-theme="light"] .react-flow__background {
+  background-color: #f8fafc !important;
 }
 
 .react-flow__controls {
@@ -49,15 +91,35 @@ body {
   background: #111827 !important;
 }
 
+html.light .react-flow__controls,
+[data-theme="light"] .react-flow__controls {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  background: #ffffff !important;
+}
+
 .react-flow__controls-button {
   background: #111827 !important;
   border-bottom: 1px solid rgba(51, 65, 85, 0.4) !important;
   fill: #94a3b8 !important;
 }
 
+html.light .react-flow__controls-button,
+[data-theme="light"] .react-flow__controls-button {
+  background: #ffffff !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+  fill: #475569 !important;
+}
+
 .react-flow__controls-button:hover {
   background: #1e293b !important;
   fill: #f8fafc !important;
+}
+
+html.light .react-flow__controls-button:hover,
+[data-theme="light"] .react-flow__controls-button:hover {
+  background: #f1f5f9 !important;
+  fill: #0f172a !important;
 }
 
 .react-flow__minimap {
@@ -67,14 +129,31 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
 }
 
+html.light .react-flow__minimap,
+[data-theme="light"] .react-flow__minimap {
+  background: #ffffff !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
 .react-flow__edge-path {
   stroke-width: 2.5;
   stroke: #475569;
   transition: stroke 0.3s ease, stroke-width 0.3s ease;
 }
 
+html.light .react-flow__edge-path,
+[data-theme="light"] .react-flow__edge-path {
+  stroke: #94a3b8;
+}
+
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: #38bdf8;
+  stroke-width: 3.5;
+}
+
+html.light .react-flow__edge.selected .react-flow__edge-path {
+  stroke: #0284c7;
   stroke-width: 3.5;
 }
 

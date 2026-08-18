@@ -20,7 +20,9 @@ export const CustomEdge: React.FC<EdgeProps> = ({
   markerEnd,
   selected,
 }) => {
+  const theme = useGraphStore((state) => state.theme);
   const deleteEdge = useGraphStore((state) => state.deleteEdge);
+  const isDark = theme === 'dark';
 
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -36,6 +38,9 @@ export const CustomEdge: React.FC<EdgeProps> = ({
     deleteEdge(id);
   };
 
+  const defaultStroke = isDark ? '#0ea5e9' : '#0284c7';
+  const selectedStroke = isDark ? '#38bdf8' : '#0369a1';
+
   return (
     <>
       <BaseEdge
@@ -43,7 +48,7 @@ export const CustomEdge: React.FC<EdgeProps> = ({
         markerEnd={markerEnd}
         style={{
           ...style,
-          stroke: selected ? '#38bdf8' : '#0ea5e9',
+          stroke: selected ? selectedStroke : defaultStroke,
           strokeWidth: selected ? 3.5 : 2.5,
           transition: 'stroke 0.2s, stroke-width 0.2s',
         }}
@@ -63,7 +68,9 @@ export const CustomEdge: React.FC<EdgeProps> = ({
             className={`flex items-center justify-center rounded-full transition-all duration-200 cursor-pointer shadow-lg border ${
               selected
                 ? 'w-6 h-6 bg-rose-600 text-white border-rose-400 scale-110 ring-2 ring-rose-500/50'
-                : 'w-5 h-5 bg-[#0e1422]/90 text-slate-400 border-slate-700 hover:w-6 hover:h-6 hover:bg-rose-600 hover:text-white hover:border-rose-400 hover:scale-110'
+                : isDark
+                ? 'w-5 h-5 bg-[#0e1422]/90 text-slate-400 border-slate-700 hover:w-6 hover:h-6 hover:bg-rose-600 hover:text-white hover:border-rose-400 hover:scale-110'
+                : 'w-5 h-5 bg-white text-slate-600 border-slate-300 shadow-sm hover:w-6 hover:h-6 hover:bg-rose-600 hover:text-white hover:border-rose-400 hover:scale-110'
             }`}
           >
             <X className="w-3 h-3 group-hover:scale-110 transition-transform" />

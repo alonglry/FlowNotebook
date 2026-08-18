@@ -258,10 +258,43 @@ def preprocess_code(code: str, pipeline_id: str = "default_pipeline") -> str:
 
 
 
+# Shared execution scope per pipeline
+_pipeline_contexts: Dict[str, Dict[str, Any]] = {}
+
+
+def get_pipeline_context(pipeline_id: str) -> Dict[str, Any]:
+    """Retrieves or initializes the shared execution namespace for a given pipeline."""
+    # Ensure stock project root and relevant directories are in sys.path
+    stock_path = os.path.expanduser("~/Desktop/stock")
+    if os.path.exists(stock_path) and stock_path not in sys.path:
+        sys.path.insert(0, stock_path)
+
+    if pipeline_id not in _pipeline_contexts:
+        safe_builtins = dict(__builtins__ if isinstance(__builtins__, dict) else __builtins__.__dict__)
+        for disallowed in ["quit", "exit"]:
+            safe_builtins.pop(disallowed, None)
+
+        _pipeline_contexts[pipeline_id] = {
+            "__builtins__": safe_builtins,
+            "pd": pd,
+            "np": np,
+            "DataFrame": pd.DataFrame,
+            "Series": pd.Series
+        }
+    return _pipeline_contexts[pipeline_id]
+
+
+def clear_pipeline_context(pipeline_id: Optional[str] = None) -> None:
+    """Clears the shared execution context for a specific pipeline or all pipelines."""
+    if pipeline_id:
+        _pipeline_contexts.pop(pipeline_id, None)
+    else:
+        _pipeline_contexts.clear()
+
+
 def _run_node_code_worker(
     compiled_code: Any,
-    exec_globals: Dict[str, Any],
-    isolated_locals: Dict[str, Any],
+    exec_scope: Dict[str, Any],
     stdout_buf: io.StringIO,
     stderr_buf: io.StringIO,
     workspace_dir: Optional[str] = None
@@ -278,7 +311,7 @@ def _run_node_code_worker(
                 pass
         sys.stdout = stdout_buf
         sys.stderr = stderr_buf
-        exec(compiled_code, exec_globals, isolated_locals)
+        exec(compiled_code, exec_scope)
     finally:
         sys.stdout = old_stdout
         sys.stderr = old_stderr
@@ -297,33 +330,22 @@ def execute_node_isolated(
     pipeline_id: str = "default_pipeline"
 ) -> Dict[str, Any]:
     """
-    Executes Python code in an isolated scope with defensive copying of inputs,
-    isolated workspace filesystem, isolated package site, and strict timeout enforcement.
+    Executes Python code sharing execution context across nodes in the same pipeline,
+    with defensive copying of explicit inputs, isolated workspace filesystem, and strict timeout enforcement.
     """
     # Activate pipeline-specific site packages & workspace directory
     ws_dir = workspace_manager.activate_pipeline_site(pipeline_id)
-    # Defensive copy of input variables to strictly avoid mutating upstream states
-    isolated_locals: Dict[str, Any] = {}
+
+    # Retrieve or initialize shared pipeline execution context
+    exec_scope = get_pipeline_context(pipeline_id)
+
+    # Defensive copy of input variables into the shared context
     for var_name, var_val in input_vars.items():
         try:
-            isolated_locals[var_name] = copy.deepcopy(var_val)
+            exec_scope[var_name] = copy.deepcopy(var_val)
         except Exception:
             # Fallback for non-deepcopyable objects
-            isolated_locals[var_name] = var_val
-
-    # Construct safe builtins (remove disruptive exits)
-    safe_builtins = dict(__builtins__ if isinstance(__builtins__, dict) else __builtins__.__dict__)
-    for disallowed in ["quit", "exit"]:
-        safe_builtins.pop(disallowed, None)
-
-    # Standard execution scope with data science modules pre-injected
-    exec_globals: Dict[str, Any] = {
-        "__builtins__": safe_builtins,
-        "pd": pd,
-        "np": np,
-        "DataFrame": pd.DataFrame,
-        "Series": pd.Series
-    }
+            exec_scope[var_name] = var_val
 
     stdout_capture = io.StringIO()
     stderr_capture = io.StringIO()
@@ -344,8 +366,7 @@ def execute_node_isolated(
             future = executor.submit(
                 _run_node_code_worker,
                 compiled,
-                exec_globals,
-                isolated_locals,
+                exec_scope,
                 stdout_capture,
                 stderr_capture,
                 ws_dir
@@ -389,8 +410,8 @@ def execute_node_isolated(
     outputs_summary: Dict[str, Any] = {}
 
     if status == "success":
-        for k, v in isolated_locals.items():
-            if not k.startswith("__"):
+        for k, v in exec_scope.items():
+            if not k.startswith("__") and k not in ["pd", "np", "DataFrame", "Series"]:
                 # If expected_outputs is specified, prioritize those or save all
                 if expected_outputs is None or len(expected_outputs) == 0 or k in expected_outputs:
                     extracted_outputs[k] = v

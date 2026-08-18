@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from graph_engine import GraphExecutionEngine
 from compiler import compile_dag_to_script
+from sandbox import clear_pipeline_context
 from admin_db import (
     init_db,
     record_user_activity,
@@ -300,9 +301,10 @@ async def websocket_execute_endpoint(websocket: WebSocket):
 
             elif action == "reset_cache":
                 engine.node_outputs_cache.clear()
+                clear_pipeline_context(pipeline_id)
                 await websocket.send_json({
                     "type": "reset_complete",
-                    "message": "Engine cache cleared."
+                    "message": "Engine cache and pipeline context cleared."
                 })
 
             else:

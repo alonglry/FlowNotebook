@@ -1,7 +1,7 @@
 export type AppMode = 'standalone' | 'platform';
 
 export const APP_MODE: AppMode =
-  (import.meta.env.VITE_APP_MODE as AppMode) || 'platform';
+  (import.meta.env.VITE_APP_MODE as AppMode) || 'standalone';
 
 export const isStandalone = APP_MODE === 'standalone';
 
